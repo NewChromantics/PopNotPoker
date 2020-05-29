@@ -8,10 +8,12 @@ Pop.Include = function(Filename)
 Pop.Include('PopEngineCommon/PopApi.js');
 
 
-
 class TGame
 {
-	this.Players = [];
+	constructor()
+	{
+		this.Players = [];
+	}
 	
 	async AddPlayer(PlayerRef)
 	{
@@ -23,10 +25,12 @@ class TGame
 	async InitNewPlayer(PlayerRef)	{	throw `Game has not overloaded InitNewPlayer`;	}
 }
 
+
 class TPickANumberGame extends TGame
 {
 	constructor()
 	{
+		super(...arguments);
 		this.CurrentPlayerIndex = 0;
 		
 		this.State = this.InitState();
@@ -145,6 +149,7 @@ async function RunGameLoop(Room)
 	while(true)
 	{
 		Pop.Debug(`New Game!`);
+		
 		const Game = new TPickANumberGame();
 		while(true)
 		{
@@ -157,6 +162,7 @@ async function RunGameLoop(Room)
 			if ( !EndOfGame )
 				continue;
 		}
+		
 	}
 }
 
@@ -171,7 +177,7 @@ class LobbyWebSocketServer
 	
 	async WaitForPlayerJoinRequest()
 	{
-		return PlayerJoinRequestPromiseQueue.WaitForNext();
+		return this.PlayerJoinRequestPromiseQueue.WaitForNext();
 	}
 	
 	async EnumNewPlayers(TryAddPlayer)
