@@ -168,11 +168,72 @@ async function RunGameLoop(Room)
 
 class LobbyWebSocketServer
 {
-	constructor()
+	constructor(ListenPorts)
 	{
 		//	whatever abstraction this is
 		this.PendingPlayers = [];
+		this.PeerWaitForCommandPromises = {};	//	for [Peer][Command] there's a promise waiting for it
 		this.PlayerJoinRequestPromiseQueue = new Pop.PromiseQueue();
+		this.Ports = ListenPorts.slice();
+		let CurrentPort = null;
+		function GetNextPort()
+		{
+			CurrentPort = (CurrentPort===null) ? 0 : (CurrentPort+1)%this.Ports.length;
+			return this.Ports[CurrentPort];
+		}
+		this.CurrentSocket = null;
+		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
+	}
+	
+	async WebSocketServerLoop(GetNextPort)
+	{
+		while(true)
+		{
+			try
+			{
+				const Port = GetNextPort();
+				let Socket = new Pop.Websocket.Server(Port);
+				this.CurrentSocket = Socket;
+				
+				//	do we need to check joining states? we do care about disconnections...
+				//	we should also seperate players from rooms
+				while(Socket)
+				{
+					const Packet = await Socket.WaitForMessage();
+					//	handle join request
+					this.OnPacket(Packet.Peer,Packet.Data);
+				}
+			}
+			catch(e)
+			{
+				Pop.Debug(`Socket error ${e}`);
+				this.CurrentSocket = null;
+			}
+		}
+	}
+	
+	OnPacket(Peer,Data)
+	{
+		//	currently assuming always json
+		const Packet = JSON.parse(Data);
+		
+		if ( Packet.Command )
+		{
+			//	is there a promise waiting for this packet?
+			const PeerPromises = this.PeerWaitForCommandPromises[Peer];
+			if ( PeerPromises )
+			{
+				if ( PeerPromises.hasOwnProperty(Packet.Command) )
+				{
+					//	pop it off
+					const ReplyPromise = PeerPromises[Packet.Command];
+					delete PeerPromises[Packet.Command];
+					return ReplyPromise;
+				}
+			}
+		}
+		
+		throw `Unhandled packet ${Data}`;
 	}
 	
 	async WaitForPlayerJoinRequest()
@@ -200,17 +261,89 @@ class LobbyWebSocketServer
 	
 	SendToAllPlayers(Thing,ThingObject)
 	{
-		throw `todo`;
+		//	todo: Save last Thing for when socket restarts or players join
+		const Socket = this.CurrentSocket;
+		if ( !Socket )
+			throw `Todo: need to save ${Thing} and re-send when socket restarts`;
+		
+		//	todo: turn ThingObject function members into something static
+		const Notify = {};
+		Notify[Thing] = ThingObject;
+		const NotifyJson = JSON.stringify(Notify);
+		function Send(Peer)
+		{
+			try
+			{
+				Socket.Send(Peer,NotifyJson);
+			}
+			catch(e)
+			{
+				Pop.Debug(`Error sending to ${Peer}. disconnect player?`);
+				this.OnPlayerDisconnected(Peer);
+			}
+		}
+		const Peers = this.CurrentSocket.GetPeers();
+		Peers.forEach(Send.bind(this));
 	}
 	
+	GetPeer(Player)
+	{
+		throw `Todo; get peer from player ${Player}`;
+	}
+	
+	CreateRandomHash(Length=4)
+	{
+		//	generate string of X characters
+		const AnArray = new Array(Length);
+		const Numbers = [...AnArray];
+		//	pick random numbers from a-z (skipping 0-10)
+		const RandNumbers = Numbers.map( Math.floor(Math.random()*26) );
+		const RandAZNumbers = RandNumbers.map(i=>i+10);
+		//	turn into string with base36(10+26)
+		const RandomString = RandAZNumbers.toString(36).toUpperCase();
+		return RandomString;
+	}
+	
+	CreatePeerCommandReplyPromise(Peer,Command)
+	{
+		if ( !this.PeerWaitForCommandPromises.hasOwnProperty(Peer) )
+		{
+			this.PeerWaitForCommandPromises[Peer] = {};
+		}
+		const PeerPromises = this.PeerWaitForCommandPromises[Peer];
+		if ( PeerPromises.hasOwnProperty(ReplyCommand) )
+		{
+			throw `Peer (${Peer}) command(${ReplyCommand}) reply promise already exists`;
+		}
+		const NewPromise = Pop.CreatePromise();
+		this.PeerWaitForCommandPromises[Peer][ReplyCommand] = NewPromise
+		return NewPromise;
+	}
+		
+		
 	async SendToPlayerAndWaitForReply(Player,Move)
 	{
-		throw `todo`;
+		const Peer = this.GetPeer(Player);
+		const ReplyCommand = 'MoveResponse';
+		const Hash = this.CreateRandomHash();
+		const ReplyPromise = this.CreatePeerCommandReplyPromise(Peer,ReplyCommand);
+		
+		const Request = {};
+		Request.Command = 'MoveRequest';
+		Request.Hash = Hash;
+		Request.Move = Move;
+		const RequestStr = JSON.stringify(Request);
+		
+		const Reply = await ReplyPromise;
+		if ( Reply.Hash != Hash )
+			throw `Got MoveResponse with wrong hash (${Hash}) ${JSON.stringify(Reply)}`;
+		return Reply;
 	}
 }
 
 {
-	const Room = new LobbyWebSocketServer();
+	const Ports = [10001,10002,10003,10004];
+	const Room = new LobbyWebSocketServer(Ports);
 	RunGameLoop(Room).catch(Pop.Debug);
 }
 
