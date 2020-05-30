@@ -1,14 +1,19 @@
 
 const StateGui = new Pop.Gui.Label('CurrentState');
 
-
-function OnMoveRequest(Move,SendReply)
+function ClearMoveActionButtons()
 {
 	const ButtonContainer = document.querySelector('#MoveButtonContainer');
 	
 	//	delete old content
 	while (ButtonContainer.firstChild)
 		ButtonContainer.removeChild(ButtonContainer.lastChild);
+}
+
+function OnMoveRequest(Move,SendReply)
+{
+	ClearMoveActionButtons();
+	const ButtonContainer = document.querySelector('#MoveButtonContainer');
 
 	function SendReplyAction(ActionName,Arguments)
 	{
@@ -67,6 +72,22 @@ function OnMessage(Message,SendReply)
 	if ( Message.Command == 'MoveRequest' )
 	{
 		return OnMoveRequest(Message.Move,SendReplyWithHash);
+	}
+	else if ( Message.Command == 'Ping' )
+	{
+		//	pong?
+		return;
+	}
+	else if ( Message.Command )
+	{
+		//throw `Unhandled command ${Message.Command}`;
+	}
+	
+	if ( Message.Action )
+	{
+		ClearMoveActionButtons();
+		StateGui.SetValue(JSON.stringify(Message,null,'\t'));
+		return;
 	}
 	
 	StateGui.SetValue(JSON.stringify(Message,null,'\t'));
