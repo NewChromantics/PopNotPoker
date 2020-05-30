@@ -73,27 +73,35 @@ class TPickANumberGame extends TGame
 	{
 		const Move = {};
 		Move.Player = this.Players[this.CurrentPlayerIndex];
-		Move.Commands = {};
+		Move.Actions = {};
 
 		function TryPickANumber(Number)
 		{
-			if ( !this.State.hasOwnProperty(Number) )
+			if ( !this.State.Numbers.hasOwnProperty(Number) )
 				throw `Not a valid number ${Number}`;
-			if ( this.State[Number] !== null )
+			if ( this.State.Numbers[Number] !== null )
 				throw `Number ${Number} already picked`;
 			
 			const PickingPlayer = this.CurrentPlayerIndex
-			this.State[Number] = PickingPlayer;
+			this.State.Numbers[Number] = PickingPlayer;
 			this.CurrentPlayerIndex = (this.CurrentPlayerIndex+1)%this.Players.length;
 			
 			//	reply with move data send to all players
 			const ActionRender = {};
 			ActionRender.Player = PickingPlayer;
-			ActionRender = `Player ${PickingPlayer} picked ${Number}`;
+			ActionRender.Debug = `Player ${PickingPlayer} picked ${Number}`;
 			return ActionRender;
 		}
 		
-		Move.Commands.PickNumber = TryPickANumber.bind(this);
+		function IsFree(Index)
+		{
+			return this.State.Numbers[Index] === null;
+		}
+		let RemainingNumbers = this.State.Numbers.map( (v,i)=>i ).filter(IsFree.bind(this));
+		Move.Actions.PickNumber = {};
+		Move.Actions.PickNumber.Lambda = TryPickANumber.bind(this);
+		Move.Actions.PickNumber.Arguments = [RemainingNumbers];
+		
 		return Move;
 	}
 	
@@ -129,18 +137,13 @@ async function GameIteration(Game,Room)
 		{
 			try
 			{
-				//	turn into meta move packet
-				//	see if we can get around this so we don't lose anything
-				const NextMovePacket = JSON.parse(JSON.stringify(NextMove));
-				//NextMovePacket.Commands = Object.keys(NextMove.Commands);
-				for ( let [CommandName,Function] of Object.entries(NextMove.Commands) )
-				{
-					NextMovePacket.Commands[CommandName] = "Function";
-				}
+				const NextMovePacket = NextMove;
 				Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
 				//	wait for the reply and process it
 				const Reply = await Room.SendToPlayerAndWaitForReply(NextMove.Player, NextMovePacket);
-				const Action = NextMove.Commands[Reply.Commands](...Reply.CommandArgs);
+				const MoveActionName = Reply.Action;
+				const Lambda = NextMove.Actions[MoveActionName].Lambda;
+				const Action = Lambda(...Reply.ActionArguments);
 				return Action;
 			}
 			catch(e)

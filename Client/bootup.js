@@ -1,8 +1,74 @@
 
 const StateGui = new Pop.Gui.Label('CurrentState');
 
+
+function OnMoveRequest(Move,SendReply)
+{
+	const ButtonContainer = document.querySelector('#MoveButtonContainer');
+	
+	//	delete old content
+	while (ButtonContainer.firstChild)
+		ButtonContainer.removeChild(ButtonContainer.lastChild);
+
+	function SendReplyAction(ActionName,Arguments)
+	{
+		const Reply = {};
+		Reply.Action = ActionName;
+		Reply.ActionArguments = Arguments;
+		SendReply(Reply);
+	}
+	
+	//	add button for each action choice
+	function AddActionButton(ActionName)
+	{
+		const Action = Move.Actions[ActionName];
+		const Div = document.createElement('div');
+		ButtonContainer.appendChild(Div);
+		const Button = document.createElement('input');
+		Div.appendChild(Button);
+		Button.type = 'button';
+		Button.value = ActionName;
+		
+		function MakeArgumentInput(ArgumentChoices)
+		{
+			const Input = document.createElement('select');
+			Div.appendChild(Input);
+			function AddOption(ArgumentValue)
+			{
+				const Option = document.createElement('option');
+				Option.value = ArgumentValue;
+				Option.text = ArgumentValue;
+				Input.appendChild(Option);
+			}
+			ArgumentChoices.forEach(AddOption);
+			return Input;
+		}
+		const ArgumentInputs = Action.Arguments.map(MakeArgumentInput);
+		
+		function OnClick()
+		{
+			const ArgumentValues = ArgumentInputs.map( i => i.value );
+			SendReplyAction(ActionName,ArgumentValues);
+		}
+		Button.onclick = OnClick;
+	}
+	Object.keys(Move.Actions).forEach(AddActionButton);
+}
+
 function OnMessage(Message,SendReply)
 {
+	function SendReplyWithHash(Reply)
+	{
+		Reply.Hash = Message.Hash;
+		Reply.Command = Message.ReplyCommand;
+		SendReply(Reply);
+	}
+
+	if ( Message.Command == 'MoveRequest' )
+	{
+		return OnMoveRequest(Message.Move,SendReplyWithHash);
+	}
+	
 	StateGui.SetValue(JSON.stringify(Message,null,'\t'));
 }
 
