@@ -27,6 +27,13 @@ class TGame
 		return PlayerRef;
 	}
 	
+	UpdatePlayerList(Players)
+	{
+		//	refresh the list
+		Pop.Debug(`New player list ${this.Players} -> ${Players}`);
+		this.Players = Players.slice();
+	}
+	
 	async WaitForNextMove()			{	throw `Game has not overloaded WaitForNextMove`;	}
 	async InitNewPlayer(PlayerRef)	{	throw `Game has not overloaded InitNewPlayer`;	}
 }
@@ -71,8 +78,9 @@ class TPickANumberGame extends TGame
 	
 	async GetNextMove()
 	{
+		//	todo: handle players being removed, this.CurrentPlayerIndex should be last player
 		const Move = {};
-		Move.Player = this.Players[this.CurrentPlayerIndex];
+		Move.Player = this.Players[this.CurrentPlayerIndex%this.Players.length];
 		Move.Actions = {};
 
 		function TryPickANumber(Number)
@@ -82,7 +90,7 @@ class TPickANumberGame extends TGame
 			if ( this.State.Numbers[Number] !== null )
 				throw `Number ${Number} already picked`;
 			
-			const PickingPlayer = this.CurrentPlayerIndex
+			const PickingPlayer = this.Players[this.CurrentPlayerIndex];
 			this.State.Numbers[Number] = PickingPlayer;
 			this.CurrentPlayerIndex = (this.CurrentPlayerIndex+1)%this.Players.length;
 			
@@ -90,6 +98,17 @@ class TPickANumberGame extends TGame
 			const ActionRender = {};
 			ActionRender.Player = PickingPlayer;
 			ActionRender.Debug = `Player ${PickingPlayer} picked ${Number}`;
+			return ActionRender;
+		}
+		
+		function ForfeitMove(Error)
+		{
+			const PickingPlayer = this.Players[this.CurrentPlayerIndex];
+			this.CurrentPlayerIndex = (this.CurrentPlayerIndex+1)%this.Players.length;
+
+			const ActionRender = {};
+			ActionRender.Player = PickingPlayer;
+			ActionRender.Debug = `Move forfeigted ${Error}`;
 			return ActionRender;
 		}
 		
@@ -101,6 +120,8 @@ class TPickANumberGame extends TGame
 		Move.Actions.PickNumber = {};
 		Move.Actions.PickNumber.Lambda = TryPickANumber.bind(this);
 		Move.Actions.PickNumber.Arguments = [RemainingNumbers];
+		
+		Move.Forfeit = ForfeitMove.bind(this);
 		
 		return Move;
 	}
@@ -153,6 +174,9 @@ async function GameIteration(Game,Room)
 				//	todo: catch players disconnecting, reply timeout (ie, time limited moves)
 				Pop.Debug(`Player move reply failed: ${e}. Try again`);
 				await Pop.Yield(100);	//	in case we get stuck on code error
+
+				//	gr: this should now be an error and go forfeited
+				return NextMove.Forfeit(e);
 			}
 		}
 	}
@@ -165,6 +189,7 @@ async function GameIteration(Game,Room)
 		const State = Game.GetState();
 		Room.SendToAllPlayers('State',State);
 		Room.SendToAllPlayers('Action',Action);
+		Pop.Debug(`On Action ${Action}`);
 	}
 	
 	//	move occured, assume state has updated, loop around
@@ -187,7 +212,7 @@ async function RunGameLoop(Room)
 		while(true)
 		{
 			//	check for new players
-			await Room.EnumNewPlayers( Game.AddPlayer.bind(Game) );
+			await Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.UpdatePlayerList.bind(Game) );
 			
 			//	todo: check for all players quit
 			//	do a game iteration and see if it's finished
@@ -227,6 +252,28 @@ class LobbyWebSocketServer
 		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
+	SendPings(Socket)
+	{
+		const Ping = {};
+		Ping.Command = 'Ping';
+		function SendPing(Peer)
+		{
+			try
+			{
+				this.SendToPeer(Peer,Ping);
+			}
+			catch(e)
+			{
+				Pop.Debug(`Ping to ${Peer} error ${e}`);
+			}
+		}
+		//	gr: don't ping peers, ping the peers we've ever seen
+		const Peers = Object.values(this.PlayerPeers);
+		Pop.Debug(`PingLoop x${Peers}`);
+		//const Peers = Socket.GetPeers();
+		Peers.forEach(SendPing.bind(this));
+	}
+	
 	async WebSocketServerLoop(GetNextPort)
 	{
 		while(true)
@@ -236,6 +283,17 @@ class LobbyWebSocketServer
 				const Port = GetNextPort();
 				let Socket = new Pop.Websocket.Server(Port);
 				this.CurrentSocket = Socket;
+				
+				//	regularly send a ping to catch if a peer has disconnected (todo: use websocket ping!)
+				async function PingLoop()
+				{
+					while(Socket)
+					{
+						await Pop.Yield(2000);
+						this.SendPings(Socket);
+					}
+				}
+				PingLoop.call(this).catch(e=>Pop.Debug(`PingLoop error ${e}`));
 				
 				//	do we need to check joining states? we do care about disconnections...
 				//	we should also seperate players from rooms
@@ -306,11 +364,22 @@ class LobbyWebSocketServer
 	{
 		if ( typeof Message != 'string' )
 			Message = JSON.stringify(Message);
-		this.CurrentSocket.Send(Peer,Message);
+		try
+		{
+			this.CurrentSocket.Send(Peer,Message);
+		}
+		catch(e)
+		{
+			//	error sending, client gone!
+			this.DisconnectPeer(Peer);
+			throw e;
+		}
 	}
 	
 	DisconnectPeer(Peer)
 	{
+		Pop.Debug(`DisconnectPeer(${Peer})`);
+		//	clear mapping
 		for ( let [Player,PlayerPeer] of Object.entries(this.PlayerPeers) )
 		{
 			if ( PlayerPeer != Player )
@@ -318,7 +387,18 @@ class LobbyWebSocketServer
 			if ( PlayerPeer == Peer )
 				this.PlayerPeers[Player] = null;
 		}
-		this.CurrentSocket.Disconnect(Peer);
+		
+		//	clear any promises linked to this peer
+		const PeerPromises = this.PeerWaitForCommandPromises[Peer];
+		if ( PeerPromises )
+		{
+			Pop.Debug(`Clearing peer promises PeerPromises=${JSON.stringify(PeerPromises)}`);
+			Object.values(PeerPromises).forEach( p => p.Reject('Peer disconnected') );
+			delete this.PeerWaitForCommandPromises[Peer];
+		}
+		
+		//	make sure its disconnected
+		//this.CurrentSocket.Disconnect(Peer);
 	}
 	
 	OnPeerTryJoin(Peer)
@@ -360,7 +440,7 @@ class LobbyWebSocketServer
 		this.PlayerJoinRequestPromiseQueue.Push();
 	}
 	
-	async EnumNewPlayers(TryAddPlayer)
+	async EnumNewPlayers(TryAddPlayer,UpdatePlayerList)
 	{
 		while(this.PendingPeers.length)
 		{
@@ -384,6 +464,10 @@ class LobbyWebSocketServer
 				NewPeerPromise.Reject(e);
 			}
 		}
+		
+		//	update player list
+		const ExistingPlayers = Object.keys(this.PlayerPeers);
+		UpdatePlayerList(ExistingPlayers);
 	}
 	
 	SendToAllPlayers(Thing,ThingObject)
