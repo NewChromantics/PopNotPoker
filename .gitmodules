@@ -1,3 +1,6 @@
 [submodule "Server/PopEngineCommon"]
 	path = Server/PopEngineCommon
 	url = https://github.com/NewChromantics/PopEngineCommon.git
+[submodule "Client/PopEngineCommon"]
+	path = Client/PopEngineCommon
+	url = https://github.com/NewChromantics/PopEngineCommon.git
