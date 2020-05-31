@@ -69,7 +69,7 @@ function OnMessage(Message,SendReply)
 		SendReply(Reply);
 	}
 
-	if ( Message.Command == 'MoveRequest' )
+	if ( Message.Command == 'Move' )
 	{
 		return OnMoveRequest(Message.Move,SendReplyWithHash);
 	}

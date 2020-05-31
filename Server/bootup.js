@@ -20,18 +20,16 @@ class TGame
 		this.Players = [];
 	}
 	
-	async AddPlayer(PlayerRef)
+	AddPlayer(PlayerRef)
 	{
-		await this.InitNewPlayer(PlayerRef);
 		this.Players.push(PlayerRef);
-		return PlayerRef;
+		return "Some player meta for game";
 	}
 	
-	UpdatePlayerList(Players)
+	DeletePlayer(PlayerRef)
 	{
-		//	refresh the list
-		Pop.Debug(`New player list ${this.Players} -> ${Players}`);
-		this.Players = Players.slice();
+		//	cut player out
+		this.Players = this.Players.filter( p => p!=PlayerRef );
 	}
 	
 	async WaitForNextMove()			{	throw `Game has not overloaded WaitForNextMove`;	}
@@ -151,38 +149,32 @@ async function GameIteration(Game,Room)
 		Room.SendToAllPlayers('State',State);
 	}
 	
-	async function WaitForValidReply()
+	async function WaitForMoveReply()
 	{
 		//	send next move to player who's move it is
-		while ( true )
+		try
 		{
-			try
-			{
-				const NextMovePacket = NextMove;
-				Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
-				//	wait for the reply and process it
-				const Reply = await Room.SendToPlayerAndWaitForReply(NextMove.Player, NextMovePacket);
-				const MoveActionName = Reply.Action;
-				const Lambda = NextMove.Actions[MoveActionName].Lambda;
-				const Action = Lambda(...Reply.ActionArguments);
-				return Action;
-			}
-			catch(e)
-			{
-				//	on error, we could notify everyone else
-				//	loop and send the move again
-				//	todo: catch players disconnecting, reply timeout (ie, time limited moves)
-				Pop.Debug(`Player move reply failed: ${e}. Try again`);
-				await Pop.Yield(100);	//	in case we get stuck on code error
-
-				//	gr: this should now be an error and go forfeited
-				return NextMove.Forfeit(e);
-			}
+			const NextMovePacket = NextMove;
+			Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
+			//	wait for the reply and process it
+			const Reply = await Room.SendToPlayerAndWaitForReply('Move',NextMove.Player, NextMovePacket);
+			const MoveActionName = Reply.Action;
+			const Lambda = NextMove.Actions[MoveActionName].Lambda;
+			const Action = Lambda(...Reply.ActionArguments);
+			return Action;
+		}
+		catch(e)
+		{
+			//	on error, move is forfeit'd (player timeout/disconnect etc)
+			Pop.Debug(`Player move reply failed: ${e}. Try again`);
+			await Pop.Yield(100);	//	in case we get stuck on code error
+			//	gr: this should now be an error and go forfeited
+			return NextMove.Forfeit(e);
 		}
 	}
 	
 	//	do the move, grab the resulting movement when finished
-	const Action = await WaitForValidReply();
+	const Action = await WaitForMoveReply();
 	
 	//	send something showing what their [public] move was
 	{
@@ -212,7 +204,7 @@ async function RunGameLoop(Room)
 		while(true)
 		{
 			//	check for new players
-			await Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.UpdatePlayerList.bind(Game) );
+			await Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
 			
 			//	todo: check for all players quit
 			//	do a game iteration and see if it's finished
@@ -228,19 +220,49 @@ let UniquePlayerRef = 1000;
 function AllocPlayerRef()
 {
 	UniquePlayerRef++;
-	return UniquePlayerRef;
+	return `P${UniquePlayerRef}`;
+}
+
+class LobbyPlayer
+{
+	constructor(Player)
+	{
+		this.Player = Player ? Player : AllocPlayerRef();
+		this.Peer = null;
+		this.ReplyWaits = {};		//	[Command] = PromiseWaiting
+		this.OnJoinPromise = null;	//	this promise is resolved by the game allowing player in/out
+	}
+	
+	RejectWaits(Reason)
+	{
+		if ( this.OnJoinPromise )
+			this.OnJoinPromise.Reject(Reason);
+		
+		const ReplyWaitPromises = Object.values(this.ReplyWaits);
+		ReplyWaitPromises.forEach( p => p.Reject(Reason) );
+	}
+	
+	CreateReplyWait(Command)
+	{
+		if ( this.ReplyWaits.hasOwnProperty(Command) )
+			throw `CreateReplyWait: Player already waiting for ${Command} reply`;
+		const Promise = Pop.CreatePromise();
+		this.ReplyWaits[Command] = Promise;
+		return Promise;
+	}
 }
 
 class LobbyWebSocketServer
 {
 	constructor(ListenPorts)
 	{
-		this.PlayerPeers = {};	//	PeerPlayers[Player] = Peer
-		
-		//	whatever abstraction this is
-		this.PendingPeers = [];
-		this.PeerWaitForCommandPromises = {};	//	for [Peer][Command] there's a promise waiting for it
+		this.WaitingPlayers = [];	//	list of players who want to join
+		this.Players = [];			//	players in the game LobbyPlayer
+		this.DeletedPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
+
+		//	semaphore to notify there are new players
 		this.PlayerJoinRequestPromiseQueue = new Pop.PromiseQueue();
+
 		this.Ports = ListenPorts.slice();
 		let CurrentPort = null;
 		function GetNextPort()
@@ -268,10 +290,12 @@ class LobbyWebSocketServer
 			}
 		}
 		//	gr: don't ping peers, ping the peers we've ever seen
-		const Peers = Object.values(this.PlayerPeers);
-		Pop.Debug(`PingLoop x${Peers}`);
+		const WaitingPeers = this.WaitingPlayers.map(p=>p.Peer);
+		const ActivePeers = this.Players.map(p=>p.Peer);
+		//Pop.Debug(`PingLoop x${WaitingPeers} x${ActivePeers}`);
 		//const Peers = Socket.GetPeers();
-		Peers.forEach(SendPing.bind(this));
+		WaitingPeers.forEach(SendPing.bind(this));
+		ActivePeers.forEach(SendPing.bind(this));
 	}
 	
 	async WebSocketServerLoop(GetNextPort)
@@ -322,6 +346,7 @@ class LobbyWebSocketServer
 		}
 	}
 	
+	
 	OnPacket(Peer,Data)
 	{
 		//	currently assuming always json
@@ -330,20 +355,22 @@ class LobbyWebSocketServer
 		if ( !Packet.Command )
 			throw `Packet has no command`;
 
+		const Player = this.GetPlayer(Peer);
+
+		//	if there is a player, see if this is a reply
+		if ( Player )
 		{
-			//	is there a promise waiting for this packet?
-			const PeerPromises = this.PeerWaitForCommandPromises[Peer];
-			if ( PeerPromises )
+			//	promise to respond to
+			if ( Player.ReplyWaits.hasOwnProperty(Packet.Command) )
 			{
-				if ( PeerPromises.hasOwnProperty(Packet.Command) )
-				{
-					//	pop it off
-					const ReplyPromise = PeerPromises[Packet.Command];
-					delete PeerPromises[Packet.Command];
-					ReplyPromise.Resolve(Packet);
-					return;
-				}
+				const Promise = Player.ReplyWaits[Packet.Command];
+				Promise.Resolve(Packet);
+				delete Player.ReplyWaits[Packet.Command];
+				return;
 			}
+			
+			//	player specific command
+			throw `Command ${Packet.Command} for player ${Player.Player} not known`;
 		}
 		
 		if ( Packet.Command == 'Join' )
@@ -371,103 +398,134 @@ class LobbyWebSocketServer
 		catch(e)
 		{
 			//	error sending, client gone!
+			Pop.Debug(`SendToPeer Socket error ${e}`);
 			this.DisconnectPeer(Peer);
 			throw e;
 		}
 	}
 	
-	DisconnectPeer(Peer)
+	DisconnectPeer(Peer,Reason)
 	{
+		function MatchPlayer(Match)		{	return Match.Peer == Peer;	}
+		function MisMatchPlayer(Match)	{	return !MatchPlayer(Match);	}
+
+		//	player has errored in some way, (maybe socket disconnected, maybe kicked)
 		Pop.Debug(`DisconnectPeer(${Peer})`);
-		//	clear mapping
-		for ( let [Player,PlayerPeer] of Object.entries(this.PlayerPeers) )
-		{
-			if ( PlayerPeer != Player )
-				continue;
-			if ( PlayerPeer == Peer )
-				this.PlayerPeers[Player] = null;
-		}
+
+		//	pop player(should be 1) matching peer
+		const WaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
+		this.WaitingPlayers = this.WaitingPlayers.filter(MisMatchPlayer);
+		const ActivePlayers = this.Players.filter(MatchPlayer);
+		this.Players = this.Players.filter(MisMatchPlayer);
+		const WaitingPlayer = WaitingPlayers.length ? WaitingPlayers[0] : null;
+		const ActivePlayer = ActivePlayers.length ? ActivePlayers[0] : null;
+
+		Pop.Debug(`Disconnecting peer; WaitingPlayer=${WaitingPlayer} ActivePlayer=${ActivePlayer}`);
+
+		//	reject anything waiting
+		if ( WaitingPlayer )
+			WaitingPlayer.RejectWaits(Reason);
+		if ( ActivePlayer )
+			ActivePlayer.RejectWaits(Reason);
 		
-		//	clear any promises linked to this peer
-		const PeerPromises = this.PeerWaitForCommandPromises[Peer];
-		if ( PeerPromises )
-		{
-			Pop.Debug(`Clearing peer promises PeerPromises=${JSON.stringify(PeerPromises)}`);
-			Object.values(PeerPromises).forEach( p => p.Reject('Peer disconnected') );
-			delete this.PeerWaitForCommandPromises[Peer];
-		}
+		//	add to list of players that need to be cut from the game
+		this.DeletedPlayers.push(WaitingPlayer||ActivePlayer);
+		
+		//	todo: send disconnect notify packet
 		
 		//	make sure its disconnected
 		//this.CurrentSocket.Disconnect(Peer);
 	}
 	
-	OnPeerTryJoin(Peer)
+	MovePlayerFromWaitingToActive(Player)
 	{
-		Pop.Debug(`Peer ${Peer} trying to join`);
-		//	make a promise
-		const OnJoinPromise = Pop.CreatePromise();
-		async function HandleJoin()
+		function MatchPlayer(Match)		{	return Match.Player == Player.Player;	}
+		function MisMatchPlayer(Match)	{	return !MatchPlayer(Match);	}
+
+		//	should be one in waiting list, take it out
+		const MatchingWaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
+		if ( MatchingWaitingPlayers.length != 1 )
+			Pop.Debug(`There are ${MatchingWaitingPlayers.length} players ${Player.Player} in waiting list, should be 1`);
+		this.WaitingPlayers = this.WaitingPlayers.filter(MisMatchPlayer);
+
+		//	should NOT be in player list. Add it
+		const MatchingActivePlayers = this.Players.filter(MatchPlayer);
+		if ( MatchingActivePlayers.length != 0 )
+			Pop.Debug(`There are ${MatchingActivePlayers.length} players ${Player.Player} in active list, should be 0`);
+		this.Players.push(Player);
+	}
+	
+	OnPeerTryJoin(Peer,Packet)
+	{
+		//	todo: allow packet to have a playerref
+		//	new player who wants to join
+		const Player = new LobbyPlayer();
+		Player.Peer = Peer;
+		Pop.Debug(`Peer ${Peer} trying to join (player=${Player.Player})`);
+		this.WaitingPlayers.push(Player);
+		
+		//	this promise is resolved or rejected when the player is allowed into the room
+		Player.OnJoinPromise = Pop.CreatePromise();
+		
+		//	now this player has to wait for confirmation/rejection
+		async function HandleJoin(Player)
 		{
 			try
 			{
-				const Player = await OnJoinPromise;
+				const SomeMetaFromGame = await Player.OnJoinPromise;
 				Pop.Debug(`OnPeerJoin resolved; Peer=${Peer} is Player=${Player}`);
-				if ( !Player )
-					throw `OnJoinPromise didn't return a player handle (${Player})`;
 				//	notify player they're in
 				const Notify = {};
 				Notify.Command = 'JoinReply';
-				Notify.Player = Player;
+				Notify.Player = Player.Player;
+				Notify.Debug = SomeMetaFromGame;
 				this.SendToPeer(Peer,Notify);
-				this.PlayerPeers[Player] = Peer;
 				Pop.Debug(`Peer(${Peer}) joined ${Player}`);
 			}
 			catch(e)
 			{
 				Pop.Debug(`Join error, rejecting; ${e}`);
 				//	send error, then kick
-				//	notify player they're in
 				const Notify = {};
 				Notify.Command = 'JoinReply';
 				Notify.Error = e;
 				this.SendToPeer(Peer,Notify);
-				this.DisconnectPeer(Peer);
 			}
 		}
-		HandleJoin.call(this).then().catch(Pop.Debug);
-		this.PendingPeers.push(OnJoinPromise);
+		HandleJoin.call(this,Player).then().catch(Pop.Debug);
+
 		//	wake up
 		this.PlayerJoinRequestPromiseQueue.Push();
 	}
 	
-	async EnumNewPlayers(TryAddPlayer,UpdatePlayerList)
+	async EnumNewPlayers(AddPlayer,DeletePlayer)
 	{
-		while(this.PendingPeers.length)
+		//	for any waiting player they should do a request
+		function TryJoin(Player)
 		{
-			Pop.Debug(`Enuming new peer...`);
-			const NewPeerPromise = this.PendingPeers.shift();
 			try
 			{
-				//	gr: if we're allocating the player, why have it return...
-				const PlayerRef = AllocPlayerRef();
-				Pop.Debug(`New Player Ref (${PlayerRef}) being added to game...`);
-				const Player = await TryAddPlayer(PlayerRef);
-				Pop.Debug(`TryAddPlayer result= ${Player}`);
-				if ( !Player )
-					throw `TryAddPlayer didn't return a player handle (${Player})`;
-				Pop.Debug(`Resolving new peer promise ${Player}`);
-				NewPeerPromise.Resolve(Player);
+				Pop.Debug(`Adding new player ${Player.Player}`);
+				const NewPlayerMeta = AddPlayer(Player.Player);
+				
+				//	move player from waiting to player list
+				this.MovePlayerFromWaitingToActive(Player);
+				Player.OnJoinPromise.Resolve(NewPlayerMeta);
 			}
 			catch(e)
 			{
-				Pop.Debug(`new player was rejected ${e}`);
-				NewPeerPromise.Reject(e);
+				Pop.Debug(`New player rejected ${Player.Player} ${e}`);
+				//	player rejected for some reason
+				Player.OnJoinPromise.Reject(e);
 			}
 		}
 		
-		//	update player list
-		const ExistingPlayers = Object.keys(this.PlayerPeers);
-		UpdatePlayerList(ExistingPlayers);
+		//	the function inside moves from the waiting list, so make a copy to iterate
+		const WaitingPlayers = this.WaitingPlayers.slice();
+		WaitingPlayers.forEach(TryJoin.bind(this));
+		
+		const DeletedPlayers = this.DeletedPlayers.splice(0);
+		DeletedPlayers.forEach(DeletePlayer);
 	}
 	
 	SendToAllPlayers(Thing,ThingObject)
@@ -499,13 +557,28 @@ class LobbyWebSocketServer
 	
 	GetPeer(Player)
 	{
-		if ( !this.PlayerPeers.hasOwnProperty(Player) )
-			throw `Room doesn't have a player called ${Player}`;
-		
-		const Peer = this.PlayerPeers[Player];
-		if ( !Peer )
-			throw `No peer(${Peer}) for player(${Player})`;
-		return Peer;
+		function MatchPlayer(Match)	{	return Match.Player == Player;	}
+		const WaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
+		const ActivePlayers = this.Players.filter(MatchPlayer);
+		if ( WaitingPlayers.length )
+			return WaitingPlayers[0].Peer;
+		if ( ActivePlayers.length )
+			return ActivePlayers[0].Peer;
+		return null;
+	}
+	
+	GetPlayer(PeerOrPlayerRef)
+	{
+		const Peer = PeerOrPlayerRef;
+		const PlayerRef = PeerOrPlayerRef;
+		function MatchPeer(Player)	{	return Player.Peer == Peer || Player.Player==PlayerRef;	}
+		const WaitingPlayers = this.WaitingPlayers.filter(MatchPeer);
+		const ActivePlayers = this.Players.filter(MatchPeer);
+		if ( WaitingPlayers.length )
+			return WaitingPlayers[0];
+		if ( ActivePlayers.length )
+			return ActivePlayers[0];
+		return null;
 	}
 	
 	CreateRandomHash(Length=4)
@@ -539,24 +612,38 @@ class LobbyWebSocketServer
 	}
 		
 		
-	async SendToPlayerAndWaitForReply(Player,Move)
+	async SendToPlayerAndWaitForReply(Command,PlayerRef,Data)
 	{
+		const Player = this.GetPlayer(PlayerRef);
+		if ( !Player )
+		{
+			//Pop.Debug(`Players: ${JSON.stringify(this.Players)}`);
+			throw `SendToPlayerAndWaitForReply: No player found for ${PlayerRef}`;
+		}
+
 		//	it's possible this is called before Player/Peer is set...
 		//	so it needs to wait if we know there's a player, but peer not set
 		
-		const Peer = this.GetPeer(Player);
-		const ReplyCommand = 'MoveResponse';
+		const Peer = Player.Peer;//this.GetPeer(PlayerRef);
+		const ReplyCommand = Command+'Response';
 		const Hash = this.CreateRandomHash();
-		const ReplyPromise = this.CreatePeerCommandReplyPromise(Peer,ReplyCommand);
+		const ReplyPromise = Player.CreateReplyWait(ReplyCommand);
 		
-		const Request = {};
-		Request.Command = 'MoveRequest';
-		Request.Hash = Hash;
-		Request.Move = Move;
-		Request.ReplyCommand = ReplyCommand;	//	could swap this for hash
-		const RequestStr = JSON.stringify(Request);
-		this.SendToPeer(Peer,Request);
-		
+		try
+		{
+			const Request = {};
+			Request.Command = Command;
+			Request.Hash = Hash;
+			Request[Command] = Data;
+			Request.ReplyCommand = ReplyCommand;	//	could swap this for hash
+			const RequestStr = JSON.stringify(Request);
+			this.SendToPeer(Peer,Request);
+		}
+		catch(e)
+		{
+			ReplyPromise.Reject(e);
+			return;
+		}
 		Pop.Debug(`waiting on ReplyPromise ${ReplyPromise}`);
 		const Reply = await ReplyPromise;
 		if ( Reply.Hash != Hash )
