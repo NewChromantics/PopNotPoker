@@ -6,184 +6,11 @@ Pop.Include = function(Filename)
 	return Pop.CompileAndRun( Source, Filename );
 }
 Pop.Include('PopEngineCommon/PopApi.js');
+Pop.Include('Games/Game.js');
+Pop.Include('Games/Minesweeper.js');
+//Pop.Include('Games/PickANumber.js');
 
 
-function isFunction(functionToCheck)
-{
-	return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
-}
-
-class TGame
-{
-	constructor()
-	{
-		this.Players = [];
-		
-		//	keep a record of last-playing players
-		//	then when we need the next player, we pick someone not in the list
-		//	if all exhausted, we know the player who hasn't had a go for the longest
-		this.LastPlayers = [];
-		//	we still need to keep the current one as we get next player, but doesnt
-		//	move along until end of turn
-		this.NextPlayer = null;
-	}
-	
-	AddPlayer(PlayerRef)
-	{
-		this.Players.push(PlayerRef);
-		return "Some player meta for game";
-	}
-	
-	DeletePlayer(PlayerRef)
-	{
-		//	cut player out
-		this.Players = this.Players.filter( p => p!=PlayerRef );
-	}
-	
-	//	this gets the next player, but does NOT move it along
-	//	in case move is not completed. EndPlayerTurn() moves it along
-	GetNextPlayer()
-	{
-		if ( !this.Players.length )
-			throw `GetNextPlayer: No players to choose from`;
-
-		//	player still pending
-		if ( this.NextPlayer !== null )
-			return this.NextPlayer;
-		
-		//	cull any players that have left from the played list
-		function IsPlayer(Player)
-		{
-			return this.Players.some( p => p==Player );
-		}
-		this.LastPlayers = this.LastPlayers.filter(IsPlayer.bind(this));
-		
-		//	go through players to see if one hasn't played
-		for ( let i=0;	i<this.Players.length;	i++ )
-		{
-			const Player = this.Players[i];
-			//	already played
-			if ( this.LastPlayers.some( p => p==Player ) )
-				continue;
-			//	hasn't played, set active
-			this.NextPlayer = Player;
-			return Player;
-		}
-		
-		//	everyone has played, take the oldest one and return it
-		const FiloPlayer = this.LastPlayers.shift();
-		this.NextPlayer = FiloPlayer;
-		return FiloPlayer;
-	}
-	
-	EndPlayerTurn(ExpectedPlayer=null)
-	{
-		if ( this.NextPlayer === null )
-			throw `EndPlayerTurn(${ExpectedPlayer}) expecting no null-nextplayer`;
-		
-		//	make sure we're ending the right player
-		if ( this.NextPlayer != ExpectedPlayer )
-			throw `EndPlayerTurn(${ExpectedPlayer}) should be ${this.NextPlayer}`;
-		
-		//	put this player at the end of the list
-		this.LastPlayers.push(this.NextPlayer);
-		this.NextPlayer = null;
-	}
-	
-	async WaitForNextMove()			{	throw `Game has not overloaded WaitForNextMove`;	}
-	async InitNewPlayer(PlayerRef)	{	throw `Game has not overloaded InitNewPlayer`;	}
-}
-
-
-class TPickANumberGame extends TGame
-{
-	constructor()
-	{
-		super(...arguments);
-		
-		this.State = this.InitState();
-	}
-	
-	InitState()
-	{
-		const State = {};
-		State.Numbers = new Array(10);
-		State.Numbers.fill(null);
-		return State;
-	}
-	
-	GetState()
-	{
-		//	return copy that can't be mutated?
-		return this.State;
-	}
-	
-	async InitNewPlayer(PlayerRef)
-	{
-		if ( this.Players.length >= 2 )
-			throw `Player limit reached`;
-	}
-	
-	HasEnoughPlayers()
-	{
-		if ( this.Players.length == 0 )
-			return false;
-		return true;
-	}
-	
-	async GetNextMove()
-	{
-		const NextPlayer = this.GetNextPlayer();
-		const Move = {};
-		Move.Player = NextPlayer;
-		Move.Actions = {};
-
-		function TryPickANumber(Number)
-		{
-			if ( !this.State.Numbers.hasOwnProperty(Number) )
-				throw `Not a valid number ${Number}`;
-			if ( this.State.Numbers[Number] !== null )
-				throw `Number ${Number} already picked`;
-			
-			this.State.Numbers[Number] = NextPlayer;
-			this.EndPlayerTurn(NextPlayer);	//	move to next player
-			
-			//	reply with move data send to all players
-			const ActionRender = {};
-			ActionRender.Player = NextPlayer;
-			ActionRender.Debug = `Player ${NextPlayer} picked ${Number}`;
-			return ActionRender;
-		}
-		
-		function ForfeitMove(Error)
-		{
-			this.EndPlayerTurn(NextPlayer);	//	move to next player
-			
-			const ActionRender = {};
-			ActionRender.Player = NextPlayer;
-			ActionRender.Debug = `Move forfeigted ${Error}`;
-			return ActionRender;
-		}
-		
-		function IsFree(Index)
-		{
-			return this.State.Numbers[Index] === null;
-		}
-		let RemainingNumbers = this.State.Numbers.map( (v,i)=>i ).filter(IsFree.bind(this));
-		Move.Actions.PickNumber = {};
-		Move.Actions.PickNumber.Lambda = TryPickANumber.bind(this);
-		Move.Actions.PickNumber.Arguments = [RemainingNumbers];
-		
-		Move.Forfeit = ForfeitMove.bind(this);
-		
-		return Move;
-	}
-	
-	GetEndGame()
-	{
-		return false;
-	}
-}
 
 
 async function GameIteration(Game,Room)
@@ -198,7 +25,7 @@ async function GameIteration(Game,Room)
 		
 	const NextMove = await Game.GetNextMove();
 	{
-		const State = Game.GetState();
+		const State = Game.GetPublicState();
 	
 		//	send state to all players
 		Room.SendToAllPlayers('State',State);
@@ -233,7 +60,7 @@ async function GameIteration(Game,Room)
 	
 	//	send something showing what their [public] move was
 	{
-		const State = Game.GetState();
+		const State = Game.GetPublicState();
 		Room.SendToAllPlayers('State',State);
 		Room.SendToAllPlayers('Action',Action);
 		Pop.Debug(`On Action ${Action}`);
@@ -255,7 +82,7 @@ async function RunGameLoop(Room)
 	{
 		Pop.Debug(`New Game!`);
 		
-		const Game = new TPickANumberGame();
+		const Game = new TMinesweeperGame();
 		while(true)
 		{
 			//	check for new players

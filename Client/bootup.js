@@ -1,5 +1,7 @@
 
 const StateGui = new Pop.Gui.Label('CurrentState');
+const ActionGui = new Pop.Gui.Label('LastAction');
+const DebugGui = new Pop.Gui.Label('Debug');
 
 function ClearMoveActionButtons()
 {
@@ -86,11 +88,17 @@ function OnMessage(Message,SendReply)
 	if ( Message.Action )
 	{
 		ClearMoveActionButtons();
-		StateGui.SetValue(JSON.stringify(Message,null,'\t'));
+		ActionGui.SetValue(JSON.stringify(Message,null,'\t'));
 		return;
 	}
 	
-	StateGui.SetValue(JSON.stringify(Message,null,'\t'));
+	if ( Message.State )
+	{
+		StateGui.SetValue(JSON.stringify(Message));
+		return;
+	}
+
+	DebugGui.SetValue(JSON.stringify(Message,null,'\t'));
 }
 
 async function ConnectToServerLoop(GetAddress,OnMessage)
