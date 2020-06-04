@@ -11,7 +11,21 @@ Pop.Include('Games/Minesweeper.js');
 //Pop.Include('Games/PickANumber.js');
 
 
+const Window = new Pop.Gui.Window("Server");
 
+function CreateRandomHash(Length=4)
+{
+	//	generate string of X characters
+	const AnArray = new Array(Length);
+	const Numbers = [...AnArray];
+	//	pick random numbers from a-z (skipping 0-10)
+	const RandNumbers = Numbers.map( x=>Math.floor(Math.random()*26) );
+	const RandAZNumbers = RandNumbers.map(i=>i+10);
+	//	turn into string with base36(10+26)
+	const RandomString = RandAZNumbers.map(x=>x.toString(36)).join('').toUpperCase();
+	//Pop.Debug(`RandomString=${RandomString}`);
+	return RandomString;
+}
 
 async function GameIteration(Game,Room)
 {
@@ -36,14 +50,28 @@ async function GameIteration(Game,Room)
 		//	send next move to player who's move it is
 		try
 		{
-			const NextMovePacket = NextMove;
-			Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
-			//	wait for the reply and process it
-			const Reply = await Room.SendToPlayerAndWaitForReply('Move',NextMove.Player, NextMovePacket);
-			const MoveActionName = Reply.Action;
-			const Lambda = NextMove.Actions[MoveActionName].Lambda;
-			const Action = Lambda(...Reply.ActionArguments);
-			return Action;
+			while(true)
+			{
+				const NextMovePacket = NextMove;
+				Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
+				//	wait for the reply and process it
+				const Reply = await Room.SendToPlayerAndWaitForReply('Move',NextMove.Player, NextMovePacket);
+				const MoveActionName = Reply.Action;
+				try
+				{
+					const Lambda = NextMove.Actions[MoveActionName].Lambda;
+					const Action = Lambda(...Reply.ActionArguments);
+					return Action;
+				}
+				catch(e)
+				{
+					//	error executing the move lambda, so illegal move
+					//	try again by resending request
+					//	notify user with extra meta
+					NextMove.LastMoveError = e;
+					continue;
+				}
+			}
 		}
 		catch(e)
 		{
@@ -81,8 +109,21 @@ async function RunGameLoop(Room)
 	while(true)
 	{
 		Pop.Debug(`New Game!`);
+
+		//	game hash could actually be the room hash
+		const GameHash = CreateRandomHash();
+		function GetGameMeta()
+		{
+			//	todo: include players
+			const Meta = {};
+			Meta.GameType = this.constructor.name;
+			Meta.GameHash = GameHash;
+			const PlayerMeta = Room.GetMeta();
+			Object.assign(Meta,PlayerMeta);
+			return Meta;
+		}
 		
-		const Game = new TMinesweeperGame();
+		const Game = new TMinesweeperGame(GetGameMeta);
 		while(true)
 		{
 			//	check for new players
@@ -154,6 +195,15 @@ class LobbyWebSocketServer
 		}
 		this.CurrentSocket = null;
 		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
+	}
+	
+	GetMeta()
+	{
+		//	add player info
+		const Meta = {};
+		Meta.ActivePlayers = this.Players.map( p => p.Player );
+		Meta.WaitingPlayers = this.WaitingPlayers.map( p => p.Player );
+		return Meta;
 	}
 	
 	SendPings(Socket)
@@ -463,19 +513,7 @@ class LobbyWebSocketServer
 		return null;
 	}
 	
-	CreateRandomHash(Length=4)
-	{
-		//	generate string of X characters
-		const AnArray = new Array(Length);
-		const Numbers = [...AnArray];
-		//	pick random numbers from a-z (skipping 0-10)
-		const RandNumbers = Numbers.map( x=>Math.floor(Math.random()*26) );
-		const RandAZNumbers = RandNumbers.map(i=>i+10);
-		//	turn into string with base36(10+26)
-		const RandomString = RandAZNumbers.map(x=>x.toString(36)).join('').toUpperCase();
-		//Pop.Debug(`RandomString=${RandomString}`);
-		return RandomString;
-	}
+
 	
 	CreatePeerCommandReplyPromise(Peer,Command)
 	{
@@ -508,7 +546,7 @@ class LobbyWebSocketServer
 		
 		const Peer = Player.Peer;//this.GetPeer(PlayerRef);
 		const ReplyCommand = Command+'Response';
-		const Hash = this.CreateRandomHash();
+		const Hash = CreateRandomHash();
 		const ReplyPromise = Player.CreateReplyWait(ReplyCommand);
 		
 		try

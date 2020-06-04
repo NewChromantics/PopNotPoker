@@ -17,8 +17,7 @@ class TPickANumberGame extends TGame
 	
 	GetPublicState()
 	{
-		//	return copy that can't be mutated?
-		return this.State;
+		return super.GetPublicState(this.State);
 	}
 	
 	async InitNewPlayer(PlayerRef)

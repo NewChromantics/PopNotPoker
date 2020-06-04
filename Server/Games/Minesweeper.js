@@ -177,9 +177,7 @@ class TMinesweeperGame extends TGame
 	
 	GetPublicState()
 	{
-		const PublicState = Object.assign({},this.State);
-		delete PublicState.Private;
-		return PublicState;
+		return super.GetPublicState(this.State);
 	}
 	
 	async InitNewPlayer(PlayerRef)
@@ -215,7 +213,7 @@ class TMinesweeperGame extends TGame
 		{
 			//	invalid move
 			//	don't advance
-			throw 'Invalid move, clicking already revealed cell';
+			throw 'Clicking already revealed cell';
 		}
 		else if ( IsMine(this.State.Private.Map,xy) )
 		{
