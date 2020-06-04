@@ -110,20 +110,7 @@ async function RunGameLoop(Room)
 	{
 		Pop.Debug(`New Game!`);
 
-		//	game hash could actually be the room hash
-		const GameHash = CreateRandomHash();
-		function GetGameMeta()
-		{
-			//	todo: include players
-			const Meta = {};
-			Meta.GameType = this.constructor.name;
-			Meta.GameHash = GameHash;
-			const PlayerMeta = Room.GetMeta();
-			Object.assign(Meta,PlayerMeta);
-			return Meta;
-		}
-		
-		const Game = new TMinesweeperGame(GetGameMeta);
+		const Game = new TMinesweeperGame();
 		while(true)
 		{
 			//	check for new players
@@ -179,6 +166,7 @@ class LobbyWebSocketServer
 {
 	constructor(ListenPorts)
 	{
+		this.GameHash = CreateRandomHash();
 		this.WaitingPlayers = [];	//	list of players who want to join
 		this.Players = [];			//	players in the game LobbyPlayer
 		this.DeletedPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
@@ -197,10 +185,12 @@ class LobbyWebSocketServer
 		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
-	GetMeta()
+	GetMeta(Game)
 	{
 		//	add player info
 		const Meta = {};
+		Meta.GameHash = this.GameHash;
+		Meta.GameType = Game ? Game.constructor.name : null;
 		Meta.ActivePlayers = this.Players.map( p => p.Player );
 		Meta.WaitingPlayers = this.WaitingPlayers.map( p => p.Player );
 		return Meta;
@@ -411,6 +401,7 @@ class LobbyWebSocketServer
 				Notify.Command = 'JoinReply';
 				Notify.Player = Player.Player;
 				Notify.Debug = SomeMetaFromGame;
+				Notify.Meta = Object.assign({},this.GetMeta());
 				this.SendToPeer(Peer,Notify);
 				Pop.Debug(`Peer(${Peer}) joined ${Player}`);
 			}
@@ -421,6 +412,7 @@ class LobbyWebSocketServer
 				const Notify = {};
 				Notify.Command = 'JoinReply';
 				Notify.Error = e;
+				Notify.Meta = Object.assign({},this.GetMeta());
 				this.SendToPeer(Peer,Notify);
 			}
 		}
@@ -470,6 +462,7 @@ class LobbyWebSocketServer
 		//	todo: turn ThingObject function members into something static
 		const Notify = {};
 		Notify[Thing] = ThingObject;
+		Notify.Meta = Object.assign({},this.GetMeta());
 		const NotifyJson = JSON.stringify(Notify);
 		function Send(Peer)
 		{
@@ -556,6 +549,7 @@ class LobbyWebSocketServer
 			Request.Hash = Hash;
 			Request[Command] = Data;
 			Request.ReplyCommand = ReplyCommand;	//	could swap this for hash
+			Request.Meta = Object.assign({},this.GetMeta());
 			const RequestStr = JSON.stringify(Request);
 			this.SendToPeer(Peer,Request);
 		}

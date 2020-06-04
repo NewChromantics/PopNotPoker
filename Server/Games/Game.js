@@ -7,10 +7,9 @@ function isFunction(functionToCheck)
 
 class TGame
 {
-	constructor(GetGameMeta)
+	constructor()
 	{
 		this.Players = [];
-		this.GetGameMeta = GetGameMeta.bind(this);
 		
 		//	keep a record of last-playing players
 		//	then when we need the next player, we pick someone not in the list
@@ -24,11 +23,9 @@ class TGame
 	GetPublicState(PrivateState)
 	{
 		//	don't modify object that has come in
-		const GameMeta = this.GetGameMeta();
 		const State = {};
 		Object.assign(State,PrivateState);
 		delete State.Private;
-		Object.assign(State,GameMeta);
 		return State;
 	}
 
