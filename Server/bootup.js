@@ -567,7 +567,7 @@ class LobbyWebSocketServer
 }
 
 {
-	const Ports = [10001,10002,10003,10004];
+	const Ports = [10001,10002,10003];
 	const Room = new LobbyWebSocketServer(Ports);
 	RunGameLoop(Room).catch(Pop.Debug);
 }

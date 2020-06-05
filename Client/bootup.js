@@ -143,7 +143,14 @@ function OnMessage(Message,SendReply)
 	if ( Message.Command == 'Move' )
 	{
 		OnMoveRequest(Message.Move,SendReplyWithHash);
-		return Game.OnMoveRequest(Message.Move,SendReplyWithHash);
+		function SendReplyAction(ActionName,Arguments)
+		{
+			const Reply = {};
+			Reply.Action = ActionName;
+			Reply.ActionArguments = Arguments;
+			SendReplyWithHash(Reply);
+		}
+		return Game.OnMoveRequest(Message.Move,SendReplyAction);
 	}
 	else if ( Message.Command )
 	{
@@ -205,13 +212,12 @@ let ConnectTry = null;
 function GetNextAddress()
 {
 	const Addresses = [];
+	Addresses.push(['86.18.68.20',10001]);
+	Addresses.push(['86.18.68.20',10002]);
+	Addresses.push(['86.18.68.20',10003]);
 	Addresses.push(['localhost',10001]);
 	Addresses.push(['localhost',10002]);
 	Addresses.push(['localhost',10003]);
-	Addresses.push(['localhost',10004]);
-	Addresses.push(['localhost',10005]);
-	Addresses.push(['localhost',10006]);
-	Addresses.push(['localhost',10007]);
 	ConnectTry = (ConnectTry===null) ? 0 : ConnectTry+1;
 	return Addresses[ConnectTry%Addresses.length];
 }

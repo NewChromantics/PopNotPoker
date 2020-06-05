@@ -68,6 +68,15 @@ class TMinesweeperWindow
 		this.NewGridPixels = null;
 		this.GridPixelsTexture = new Pop.Image();
 		this.Window = null;
+		this.PendingClicks = new Pop.PromiseQueue();
+	}
+	
+	async WaitForClick()
+	{
+		//	clear out pending clicks
+		//	update ui to tell player to click
+		this.PendingClicks.ClearQueue();
+		return this.PendingClicks.WaitForNext();
 	}
 	
 	async LoadAssets()
@@ -93,6 +102,7 @@ class TMinesweeperWindow
 		const WindowContainer = ParentWindow.GetContainerElement();
 		this.Window = new Pop.Opengl.Window(WindowName,WindowContainer);
 		this.Window.OnRender = this.Render.bind(this);
+		this.Window.OnMouseDown = this.OnMouseDown.bind(this);
 	}
 	
 	SetState(State)
@@ -135,6 +145,14 @@ class TMinesweeperWindow
 			}
 		}
 		GridPixels.Pixels = new Uint8Array(Pixels);
+		this.State = State;
+	}
+	
+	GetGridSize()
+	{
+		if ( !this.State )
+			return null;
+		return GetDoubleArraySize(this.State.Map);
 	}
 	
 	Render(RenderTarget)
@@ -191,6 +209,38 @@ class TMinesweeperWindow
 			this.WindowGridRect[2] *= RenderTargetRect[2];
 			this.WindowGridRect[3] *= RenderTargetRect[3];
 		}
+	}
+	
+	OnMouseDown(Windowx,Windowy)
+	{
+		if ( !this.WindowGridRect )
+		{
+			Pop.Debug(`Mouse click ${Windowx},${Windowy} ignored as no grid render yet`);
+			return;
+		}
+		
+		const GridSize = this.GetGridSize();
+		if ( !GridSize )
+		{
+			Pop.Debug(`Mouse click ${Windowx},${Windowy} ignored as no grid size yet`);
+			return;
+		}
+		
+		let x = Math.Range( this.WindowGridRect[0], this.WindowGridRect[0] + this.WindowGridRect[2], Windowx );
+		let y = Math.Range( this.WindowGridRect[1], this.WindowGridRect[1] + this.WindowGridRect[3], Windowy );
+		
+		//	scale to grid
+		x = Math.floor( x * GridSize[0] );
+		y = Math.floor( y * GridSize[1] );
+
+		//	skip out of bounds
+		if ( x < 0 || x >= GridSize[0] || y < 0 || y >= GridSize[1] )
+		{
+			Pop.Debug(`Mouse click ${x},${y} ignored as out of bounds`);
+			return;
+		}
+		
+		this.PendingClicks.Push([x,y]);
 	}
 }
 
@@ -255,17 +305,25 @@ class TMinesweeperClient
 		this.UpdateQueue.Push(Run.bind(this));
 	}
 	
-	OnMoveRequest(Move,SendReply)
+	OnMoveRequest(Move,SendReplyAction)
 	{
 		//	need to update ui to do move,
 		//	but needs to be a promise we can cancel in case
 		//	server, say, times us out
-		async function Run()
+		if ( Object.keys(Move.Actions).includes('PickCoord') )
 		{
-			//	await user-interaction
-			//	anim change of graphics
-			Pop.Debug(`Show next move`);
+			async function Run()
+			{
+				//	update graphics
+				//	wait for user to click
+				const ClickPos = await this.RenderWindow.WaitForClick();
+				SendReplyAction('PickCoord',ClickPos);
+			}
+			this.UpdateQueue.Push(Run.bind(this));
 		}
-		this.UpdateQueue.Push(Run.bind(this));
+		else
+		{
+			throw `Minesweeper doesn't know move ${Move}`;
+		}
 	}
 }
