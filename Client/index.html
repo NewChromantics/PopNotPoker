@@ -11,6 +11,31 @@ html, body
 	
 }
 
+#MoveButtonContainer
+{
+	background:	#aaa;
+}
+
+#CurrentState
+{
+	background:	#aaf;
+}
+
+#LastAction
+{
+	background:	#ffa;
+}
+
+#Debug
+{
+	background:	#afa;
+}
+
+#Error
+{
+	background:	#faa;
+}
+
 </style>
 </head>
 <body>
@@ -26,6 +51,9 @@ html, body
 	</div>
 	<div id=Debug>
 		Debug.
+	</div>
+	<div id=Error>
+		Error.
 	</div>
 
 
@@ -43,6 +71,8 @@ html, body
 	<script src='PopEngineCommon/PopShaderCache.js'></script>
 	<script src='PopEngineCommon/ParamsWindow.js'></script>
 	<script src='Bootup.js'></script>
+	<script src='Games/MinesweeperClient.js'></script>
+	
 	<script>
 		/*
 		async function Bootup()

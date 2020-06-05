@@ -1,7 +1,39 @@
 
+//	generic/debug ui
 const StateGui = new Pop.Gui.Label('CurrentState');
 const ActionGui = new Pop.Gui.Label('LastAction');
 const DebugGui = new Pop.Gui.Label('Debug');
+const ErrorGui = new Pop.Gui.Label('Error');
+
+const Games = {};
+
+function AllocGame(GameType)
+{
+	switch(GameType)
+	{
+		case null:	//	not currently reporting on server
+		case 'TMinesweeperGame':
+			return new TMinesweeperClient();
+	}
+	throw `Unknown game type ${GameType}`;
+}
+
+function GetGame(Packet)
+{
+	//	gr: this probbaly shouldnt be under state
+	const GameHash = Packet.Meta.GameHash;
+	const GameType = Packet.Meta.GameType;
+	if ( !GameHash )
+		throw `GameHash missing`;
+	
+	if ( !Games.hasOwnProperty(GameHash) )
+	{
+		Pop.Debug(`New game! ${GameHash}:${GameType}`);
+		Games[GameHash] = AllocGame(GameType);
+	}
+	
+	return Games[GameHash];
+}
 
 function ClearMoveActionButtons()
 {
@@ -60,6 +92,8 @@ function OnMoveRequest(Move,SendReply)
 		Button.onclick = OnClick;
 	}
 	Object.keys(Move.Actions).forEach(AddActionButton);
+	
+	ErrorGui.SetValue(Move.LastMoveError||"");
 }
 
 function OnMessage(Message,SendReply)
@@ -70,32 +104,50 @@ function OnMessage(Message,SendReply)
 		Reply.Command = Message.ReplyCommand;
 		SendReply(Reply);
 	}
-
-	if ( Message.Command == 'Move' )
+	
+	if ( Message.Error )
 	{
-		return OnMoveRequest(Message.Move,SendReplyWithHash);
+		ErrorGui.SetValue(JSON.stringify(Message,null,'\t'));
 	}
-	else if ( Message.Command == 'Ping' )
+	
+	if ( Message.Command == 'Ping' )
 	{
 		//	pong?
 		return;
 	}
-	else if ( Message.Command )
+	
+	//	no meta, just some error message?
+	if ( !Message.Meta )
 	{
-		//throw `Unhandled command ${Message.Command}`;
+		DebugGui.SetValue(JSON.stringify(Message,null,'\t'));
+		return;
 	}
 	
+	const Game = GetGame(Message);
+
+	//	update state
+	if ( Message.State )
+	{
+		StateGui.SetValue(JSON.stringify(Message));
+		Game.UpdateState(Message.State);
+	}
+
+	//	render an action
 	if ( Message.Action )
 	{
 		ClearMoveActionButtons();
 		ActionGui.SetValue(JSON.stringify(Message,null,'\t'));
-		return;
+		Game.OnAction(Message);
 	}
-	
-	if ( Message.State )
+
+	if ( Message.Command == 'Move' )
 	{
-		StateGui.SetValue(JSON.stringify(Message));
-		return;
+		OnMoveRequest(Message.Move,SendReplyWithHash);
+		return Game.OnMoveRequest(Message.Move,SendReplyWithHash);
+	}
+	else if ( Message.Command )
+	{
+		//throw `Unhandled command ${Message.Command}`;
 	}
 
 	DebugGui.SetValue(JSON.stringify(Message,null,'\t'));
@@ -131,7 +183,7 @@ async function ConnectToServerLoop(GetAddress,OnMessage)
 				{
 					const Packet = await Socket.WaitForMessage();
 					const Message = JSON.parse(Packet.Data);
-					Pop.Debug(Packet.Data);
+					//Pop.Debug(Packet.Data);
 					OnMessage(Message,SendMessage);
 				}
 				/*
