@@ -352,8 +352,11 @@ class LobbyWebSocketServer
 			ActivePlayer.RejectWaits(Reason);
 		
 		//	add to list of players that need to be cut from the game
-		this.DeletedPlayers.push(WaitingPlayer||ActivePlayer);
-		
+		if ( WaitingPlayer )
+			this.DeletedPlayers.push(WaitingPlayer.Player);
+		if ( ActivePlayer )
+			this.DeletedPlayers.push(ActivePlayer.Player);
+	
 		//	todo: send disconnect notify packet
 		
 		//	make sure its disconnected
