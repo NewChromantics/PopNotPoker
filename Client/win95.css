@@ -1,0 +1,214 @@
+@font-face
+{
+	font-family: MsSansSerif;
+	src: url("MsSansSerif.ttf") ;/*format("opentype");*/
+}
+
+/* this was global/desktop styling, but can just apply to window */
+.PopGuiWindow
+{
+	color:				#000;	/* text colour */
+
+	/* current closest I can get to original */
+	font-family:	MsSansSerif, courier;
+	font-smooth:	never;
+	-webkit-font-smoothing : none;
+	font-size:		11px;
+	
+	image-rendering: pixelated;
+	
+	background:		#0cc;	/*	desktop	*/
+	
+	margin:			0px;
+	padding:		0px;
+}
+
+.PopGuiWindow
+{
+	/* 2 borders on a window! */
+	border-top:		1px #ccc solid;
+	border-left:	1px #ccc solid;
+	border-bottom:	1px #000 solid;
+	border-right:	1px #000 solid;
+	/* x offset, y offset, blur radius, spread radius, colour */
+	box-shadow:		inset 1px 1px 0px 0px #fff, inset -1px -1px 0px 0px #888;
+	
+	padding:		3px;	/* this gets ignored if child is positioned with absolute, so add margin */
+	
+	background:		#ccc;
+	
+	xposition:	absolute;
+	position:	relative;
+	xleft:		10px;
+	xtop:		20px;
+}
+
+
+.PopGuiIconView
+{
+	/* embossed border */
+	/* 2 borders on a window! */
+	border-bottom:	1px #fff solid;
+	border-right:	1px #fff solid;
+	border-top:		1px #888 solid;
+	border-left:	1px #888 solid;
+	/* x offset, y offset, blur radius, spread radius, colour */
+	box-shadow:		inset -1px -1px 0px 0px #ccc, inset 1px 1px 0px 0px #000;
+	
+	display:	flex;
+	flex-wrap:	wrap;
+
+	/* as we're absolute, the padding from above needs to be put as margin */
+	margin:		3px;
+	
+	/* title bar offset as we're absolute :/ would be good to take away need for absolute	*/
+	top:		20px !important;	/* important to override the .style set in code */
+	
+	background:		#fff;
+}
+
+.PopGuiIconView#Desktop
+{
+	border:		none;
+	box-shadow:	none;
+	background:	transparent;
+}
+
+
+.PopGuiTitleBar:before
+{
+	xxcontent:	attr(id);
+	content:	attr(content);
+	overflow:	hidden;
+	position:	absolute;
+	top:		3px;
+	left:		3px;
+}
+
+.PopGuiTitleBar
+{
+	background:	#00c;
+	padding:	3px;
+	color:		#fff;
+	xmargin-bottom:	2px;
+	
+	/*
+	 gr: this is all blurry atm, can't make it pixel-bold :/
+	 also, the weight doesn't do anything at 11px
+	 font-size:		12px;
+	 font-weight:	900;
+	 */
+	
+	display:		flex;
+	
+}
+
+.PopGuiTitleBar .PopGuiTitleIcon
+{
+	display:	none;
+	width:		16px;
+	xheight:	16px;
+	
+}
+
+.PopGuiTitleBar .PopGuiTitleText
+{
+	flex-grow:	99;
+}
+
+.PopGuiTitleBar .PopGuiButton
+{
+	background:		#ccc;
+	border-top:		1px #fff solid;
+	border-left:	1px #fff solid;
+	border-bottom:	1px #000 solid;
+	border-right:	1px #000 solid;
+	/* x offset, y offset, blur radius, spread radius, colour */
+	box-shadow:		inset -1px -1px 0px 0px #888, inset 1px 1px 0px 0px #ccc;
+	
+	color:			#000;
+	width:			10px;
+	height:			10px;
+	text-align:		center;
+	vertical-align:	middle;
+	margin-left:	2px;
+	
+	/* swap this for wingdings */
+	font-size:		8px;
+	font-weight:	bold;
+}
+
+.PopGuiIcon
+{
+	display:	flex;
+	justify-content:	center;
+	position:	relative;
+	width:		82px;
+	height:		62px;
+	margin:		6px;
+}
+
+
+.PopGuiIcon:hover .PopGuiIconImage,
+.PopGuiIconImage:hover
+{
+	filter: url(#BlueFilter);
+}
+
+.PopGuiIconImage
+{
+	position:	absolute;
+	top:	0px;
+	left:	25px;
+	width:	32px;
+	height:	32px;
+}
+
+.PopGuiIconLabel
+{
+	xbackground:red;
+	display:block;
+	position:	absolute;
+	top:		36px;
+	padding:	2px;
+}
+
+
+.PopGuiIconLabel:before
+{
+	content:	attr(content);
+	xxoverflow:	hidden;
+	position:	absolute;
+	xtop:		3px;
+	xleft:		4px;
+	width:		100%;
+	text-align:	center;
+}
+
+.PopGuiIcon:hover .PopGuiIconLabel,
+.PopGuiIconLabel:hover
+{
+	background:	#00C;
+	border:		dotted 1px #FF0;
+	color:		#fff;
+}
+
+.PopGuiMenuBar
+{
+	display:	flex;
+}
+
+.PopGuiMenuBar .PopGuiMenuItem:first-letter
+{
+	text-decoration:	underline;
+}
+.PopGuiMenuBar .PopGuiMenuItem
+{
+	padding:	4px 4px 4px 6px;
+}
+
+.PopGuiMenuBar .PopGuiMenuItem:hover
+{
+	background-color:	#00C;
+	color:				#fff;
+}

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<link rel="stylesheet" type="text/css" href="Editor_win95.css" />
+	<link rel="stylesheet" type="text/css" href="win95.css" />
 <style>
 	/* disable scrolling on ios
 	 https://stackoverflow.com/a/57489918/355753
@@ -36,9 +36,23 @@ html, body
 	background:	#faa;
 }
 
+#GameWindow
+{
+	opacity:	0.990;
+	position:	absolute;
+	left:		2vmin;
+	top:		2vmin;
+	right:		2vmin;
+	bottom:		2vmin;
+	xheight:		200px;
+	xwidth:		200px;
+}
+
 </style>
 </head>
 <body>
+	
+	<div id="GameWindow"></div>
 	
 	<div id=MoveButtonContainer>
 		Moves.
@@ -71,7 +85,7 @@ html, body
 	<script src='PopEngineCommon/PopShaderCache.js'></script>
 	<script src='PopEngineCommon/ParamsWindow.js'></script>
 	<script src='Bootup.js'></script>
-	<script src='Games/MinesweeperClient.js'></script>
+	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
 	
 	<script>
 		/*

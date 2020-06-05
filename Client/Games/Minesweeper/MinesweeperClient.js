@@ -1,3 +1,18 @@
+class TMinesweeperWindow
+{
+	constructor(WindowName,Rect)
+	{
+		this.Window = new Pop.Opengl.Window(WindowName,Rect);
+		this.Window.OnRender = this.Render.bind(this);
+	}
+	
+	Render(RenderTarget)
+	{
+		RenderTarget.ClearColour(0,1,1);
+	}
+}
+
+
 class TMinesweeperClient
 {
 	constructor()
@@ -6,8 +21,27 @@ class TMinesweeperClient
 		this.Update();
 	}
 	
+	async LoadAssets()
+	{
+		//	load what we need
+	}
+	
+	async Init()
+	{
+		//	create stuff
+		//	we want this to fill really
+		const Rect = 'GameWindow';
+		this.Window = new Pop.Gui.Window('MinesweeperGuiWindow',Rect);
+		
+		//	put a canvas inside that the game can render to
+		const WindowContainer = this.Window.GetContainerElement();
+		this.RenderWindow = new TMinesweeperWindow('MinesweeperRenderWindow',WindowContainer);
+	}
+	
 	async Update()
 	{
+		await this.LoadAssets();
+		await this.Init();
 		while(true)
 		{
 			const Job = await this.UpdateQueue.WaitForNext();
