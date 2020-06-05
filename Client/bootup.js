@@ -105,7 +105,7 @@ function OnMessage(Message,SendReply)
 		SendReply(Reply);
 	}
 	
-	if ( Message.Error )
+	if ( Message.Error || Message.Debug )
 	{
 		ErrorGui.SetValue(JSON.stringify(Message,null,'\t'));
 	}

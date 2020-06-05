@@ -1,8 +1,7 @@
-//	initial cell is unknown, we reveal on first move
-function GetInitCell(x,y)
-{
-	return '?';
-}
+const Minesweeper_Revealed = '_';
+const Minesweeper_Hidden = '?';
+const Minesweeper_Mine = 'X';
+const Minesweeper_Empty = 'E';	//	before assigning neighbour countin secret map
 
 function CreateArrayRange(First,Last)
 {
@@ -34,12 +33,67 @@ function GetInt2Range(Sizex,Sizey)
 	return All;
 }
 
+function GetNeighbourCount(x,y,Map)
+{
+	const Size = GetDoubleArraySize(Map);
+	const w = Size[0];
+	const h = Size[1];
+	let CheckedMines = [];
+	function IsMine01(xoff,yoff)
+	{
+		const xx = x+xoff;
+		const yy = y+yoff;
+		if ( xx<0 || xx>=w || yy<0 || yy>=h )
+			return 0;
+		const Cell = Map[xx][yy];
+		CheckedMines.push(Cell);
+		if ( Cell !== Minesweeper_Mine )
+			return 0;		
+		return 1;
+	}
+	let MineCount = 0;
+	MineCount += IsMine01(-1,-1);
+	MineCount += IsMine01( 0,-1);
+	MineCount += IsMine01( 1,-1);
+	MineCount += IsMine01(-1, 0);
+	//MineCount += IsMine01( 0, 0);
+	MineCount += IsMine01( 1, 0);
+	MineCount += IsMine01(-1, 1);
+	MineCount += IsMine01( 0, 1);
+	MineCount += IsMine01( 1, 1);
+	
+	Pop.Debug(`Counted ${CheckedMines} == ${MineCount}`);
+	
+	return MineCount;
+}
+
+function WriteNeighbourCounts(Map)
+{
+	const Size = GetDoubleArraySize(Map);
+	const w = Size[0];
+	const h = Size[1];
+	for ( let x=0;	x<w;	x++ )
+	{
+		for ( let y=0;	y<h;	y++ )
+		{
+			const Cell = Map[x][y];
+			if ( Cell !== Minesweeper_Empty )
+				continue;
+			const Count = GetNeighbourCount(x,y,Map);
+			Map[x][y] = Count;
+		}
+	}
+}
+
+
 function InitGameMap(Size,SafePosition,MineCount)
 {
 	//	work out mine positions
 	const AllMinePositions = GetInt2Range(...Size);
 	//	filter out safe ones
 	let PossibleMinePositions = AllMinePositions.filter( p => !MatchInt2(p,SafePosition) );
+	if ( PossibleMinePositions.length == AllMinePositions.length )
+		throw `Didn't filter out safe position; ${SafePosition}`;
 	//	pop random positions
 	let MinePositions = [];
 	for ( let i=0;	i<MineCount;	i++ )
@@ -60,11 +114,30 @@ function InitGameMap(Size,SafePosition,MineCount)
 		//	? = not revealed
 		//	M = mine
 		const IsMine = IsMinePos(x,y);
-		return IsMine ? 'M' : '_';
+		return IsMine ? Minesweeper_Mine : Minesweeper_Empty;
 	}
 	
 	const Map = MakeDoubleArray( Size[0], Size[1], InitCell );
+	
+	//	pre-calc the neighbour counts
+	//	could do it live in case we bake bad data?
+	WriteNeighbourCounts(Map);
+	Pop.Debug(`Map with GetNeighbourCount: ${JSON.stringify(Map,null,'\t')}`);
 	return Map;
+}
+
+function DoubleArray_Map(SourceDoubleArray,Replace)
+{
+	function MapCol(Col,x)
+	{
+		function MapRow(Value,y)
+		{
+			return Replace(Value,x,y);
+		}
+		return Col.map(MapRow);
+	}
+	const NewDoubleArray = SourceDoubleArray.map( MapCol );
+	return NewDoubleArray;
 }
 
 function GetDoubleArraySize(Array)
@@ -91,13 +164,13 @@ function IsUnrevealed(Map,xy)
 {
 	const Cell = Map[xy.x][xy.y];
 	console.log(`IsUnrevealed(${Cell})`);
-	return Cell === '?';
+	return Cell === Minesweeper_Hidden;
 }
 
 function IsMine(Map,xy)
 {
 	const Cell = Map[xy.x][xy.y];
-	return Cell === 'M';
+	return Cell === Minesweeper_Mine;
 }
 
 //	probably should re-use clickcoord...
@@ -105,11 +178,11 @@ function FloodReveal(Map,x,y)
 {
 	const Cell = Map[x][y];
 	//	already exposed
-	if ( Cell !== '?' )
+	if ( Cell !== Minesweeper_Hidden )
 		return;
 	
 	//	reveal it
-	Map[x][y] = 'X';
+	Map[x][y] = Minesweeper_Revealed;
 	/*
 	 const SafeClick = async function(x,y)
 	 {
@@ -150,16 +223,21 @@ class TMinesweeperGame extends TGame
 		const Width = 10;
 		const Height = 10;
 		
-		//	the secret map just says where mines (M) are
-		//	if it's a number, it's the player(1) who revealed it.
-		//	Otherwise it's nothing (_)
+		//	the secret map just says where unrevealed mines (M) are
+		//	or the playerref of who revealed it.
+		//	or a number is the neighbour count
 		State.Private = {};
 		State.Private.Map = null;
 		
 		//	the visible map shows what's known;
-		//	revealed mine (1)
+		//	revealed mine (PlayerId)
 		//	unrevealed (?)
 		//	or revealed (_)
+		//	initial cell is unknown, we reveal on first move
+		function GetInitCell(x,y)
+		{
+			return Minesweeper_Hidden;
+		}
 		State.Map = MakeDoubleArray(Width,Height,GetInitCell);
 		
 		return State;
@@ -177,7 +255,20 @@ class TMinesweeperGame extends TGame
 	
 	GetPublicState()
 	{
-		return super.GetPublicState(this.State);
+		const PrivateMap = this.State.Private.Map;
+		function ReplaceRevealedWithNeighbourCount(Value,x,y)
+		{
+			//	replace revealed cells with neighbour count
+			if ( Value != Minesweeper_Revealed )
+				return Value;
+			const Neighbours = PrivateMap[x][y];
+			return Neighbours;
+		}
+		//	get the state, but write in neighbour counts on revealed mines
+		const State = Object.assign({},this.State);
+		if ( PrivateMap )
+			State.Map = DoubleArray_Map( State.Map, ReplaceRevealedWithNeighbourCount );
+		return super.GetPublicState(State);
 	}
 	
 	async InitNewPlayer(PlayerRef)

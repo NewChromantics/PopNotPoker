@@ -68,6 +68,7 @@ async function GameIteration(Game,Room)
 					//	error executing the move lambda, so illegal move
 					//	try again by resending request
 					//	notify user with extra meta
+					Pop.Debug(`Last move error; ${e} trying again`);
 					NextMove.LastMoveError = e;
 					continue;
 				}
@@ -76,7 +77,7 @@ async function GameIteration(Game,Room)
 		catch(e)
 		{
 			//	on error, move is forfeit'd (player timeout/disconnect etc)
-			Pop.Debug(`Player move reply failed: ${e}. Try again`);
+			Pop.Debug(`Player move reply failed: ${e}. Forfeiting`);
 			await Pop.Yield(100);	//	in case we get stuck on code error
 			//	gr: this should now be an error and go forfeited
 			return NextMove.Forfeit(e);

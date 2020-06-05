@@ -38,7 +38,9 @@ class TGame
 	DeletePlayer(PlayerRef)
 	{
 		//	cut player out
+		Pop.Debug(`Players before delete; ${this.Players} ... deleting ${PlayerRef}`);
 		this.Players = this.Players.filter( p => p!=PlayerRef );
+		Pop.Debug(`Players are now; ${this.Players} after deleting ${PlayerRef}`);
 	}
 	
 	//	this gets the next player, but does NOT move it along

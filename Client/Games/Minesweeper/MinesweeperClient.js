@@ -133,9 +133,10 @@ class TMinesweeperWindow
 				let PixelIndex = (y * GridPixels.Width) + x;
 				PixelIndex *= ComponentCount;
 				const Cell = Grid[x][y];
-				const IsMine = (Cell=='M');	//	may change to indication of player
+				
 				const IsHidden = (Cell=='?');
-				const NeighbourCount = Number.isInteger(Cell) ? Cell : 0;
+				const NeighbourCount = Number.isInteger(Cell) ? Cell : false;
+				const IsMine = (!IsHidden && NeighbourCount===false);
 				const StateValue = (IsHidden) ? 0 : 1;
 				//	is flagged, is exploded etc
 				Pixels[PixelIndex+0] = IsMine ? 255 : NeighbourCount;
