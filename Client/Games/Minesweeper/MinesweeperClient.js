@@ -342,7 +342,9 @@ class PlayerWindow
 		
 		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,'Active') );
 		Packet.Meta.WaitingPlayers.forEach( p => PushPlayer(p,'Waiting') );
-		
+		Packet.Meta.DeletedPlayers.forEach( p => PushPlayer(p,'Ghost') );
+		Packet.Meta.DeletingPlayers.forEach( p => PushPlayer(p,'Ghost') );
+
 		//	look for ghosts in the score list
 		//	plus set their scores
 		if ( this.LastState && this.LastState.Scores )
@@ -353,7 +355,7 @@ class PlayerWindow
 				{
 					const GhostPlayer = {};
 					GhostPlayer.Hash = Hash;
-					GhostPlayer.Name = 'Ghost';	//	we don't know their name any more
+					GhostPlayer.Name = `${Hash} Ghost`;	//	we don't know their name any more
 					PushPlayer(GhostPlayer,'Ghost');
 				}
 				const Player = GetPlayer(Hash);
@@ -369,7 +371,7 @@ class PlayerWindow
 				return;
 			const GhostPlayer = {};
 			GhostPlayer.Hash = Hash;
-			GhostPlayer.Name = 'Ghost';	//	we don't know their name any more
+			GhostPlayer.Name = `${Hash} Ghost`;	//	we don't know their name any more
 			PushPlayer(GhostPlayer,'Ghost');
 		}
 		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));

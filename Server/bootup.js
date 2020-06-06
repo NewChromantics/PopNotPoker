@@ -387,9 +387,9 @@ class LobbyWebSocketServer
 		
 		//	add to list of players that need to be cut from the game
 		if ( WaitingPlayer )
-			this.DeletingPlayers.push(WaitingPlayer.Hash);
+			this.DeletingPlayers.push(WaitingPlayer);
 		if ( ActivePlayer )
-			this.DeletingPlayers.push(ActivePlayer.Hash);
+			this.DeletingPlayers.push(ActivePlayer);
 	
 		//	todo: send disconnect notify packet
 		this.OnPlayersChanged();
