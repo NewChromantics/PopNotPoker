@@ -522,7 +522,7 @@ class LobbyWebSocketServer
 		
 		const DeletingPlayers = this.DeletingPlayers.splice(0);
 		this.DeletedPlayers.push(...DeletingPlayers);
-		DeletingPlayers.forEach(DeletePlayer);
+		DeletingPlayers.forEach( p => DeletePlayer(p.Hash) );
 		
 		this.OnPlayersChanged();
 	}
@@ -580,7 +580,7 @@ class LobbyWebSocketServer
 		PlayerHashs.forEach(Increase.bind(this));
 	}
 	
-	GetPlayer(PeerOrPlayerHash)
+	GetPlayer(PeerOrPlayerHash,ActiveOnly=false)
 	{
 		const Peer = PeerOrPlayerHash;
 		const PlayerHash = PeerOrPlayerHash;
@@ -589,10 +589,14 @@ class LobbyWebSocketServer
 		const ActivePlayers = this.ActivePlayers.filter(MatchPeer);
 		const DeletedPlayers = this.DeletedPlayers.filter(MatchPeer);
 		const DeletingPlayers = this.DeletingPlayers.filter(MatchPeer);
-		if ( WaitingPlayers.length )	return WaitingPlayers[0];
+
 		if ( ActivePlayers.length )		return ActivePlayers[0];
-		if ( DeletedPlayers.length )	return DeletedPlayers[0];
-		if ( DeletingPlayers.length )	return DeletingPlayers[0];
+		if ( !ActiveOnly )
+		{
+			if ( WaitingPlayers.length )	return WaitingPlayers[0];
+			if ( DeletedPlayers.length )	return DeletedPlayers[0];
+			if ( DeletingPlayers.length )	return DeletingPlayers[0];
+		}
 		return null;
 	}
 	
@@ -617,7 +621,7 @@ class LobbyWebSocketServer
 		
 	async SendToPlayerAndWaitForReply(Command,PlayerRef,Data)
 	{
-		const Player = this.GetPlayer(PlayerRef);
+		const Player = this.GetPlayer(PlayerRef,true);
 		if ( !Player )
 		{
 			//Pop.Debug(`Players: ${JSON.stringify(this.ActivePlayers)}`);
