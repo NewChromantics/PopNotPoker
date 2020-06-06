@@ -279,6 +279,8 @@ class PlayerWindow
 	
 	UpdatePlayerList(Players)
 	{
+		const CurrentPlayer = this.LastState ? this.LastState.NextPlayer : null;
+		
 		//	create/update labels
 		function UpdatePlayerLabel(Player)
 		{
@@ -288,9 +290,9 @@ class PlayerWindow
 			const Label = this.PlayerLabels[Player.Name];
 
 			let LabelText = `${Player.Name} (<b>${Player.Score}</b>)`;
-			if ( Player.State == 'Waiting' )		LabelText += ' joining...';
-			if ( Player.State == 'Ghost' )			LabelText += ' &#9760;';
-			if ( Player.Name == this.MovePlayer )	LabelText += ' &larr;';
+			if ( Player.State == 'Waiting' )	LabelText += ' joining...';
+			if ( Player.State == 'Ghost' )		LabelText += ' &#9760;';
+			if ( Player.Name == CurrentPlayer )	LabelText += ' &larr;';
 			Label.SetValue(LabelText);
 		}
 		Players.forEach(UpdatePlayerLabel.bind(this));

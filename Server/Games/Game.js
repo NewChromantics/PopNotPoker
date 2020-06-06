@@ -26,6 +26,9 @@ class TGame
 		const State = {};
 		Object.assign(State,PrivateState);
 		delete State.Private;
+		
+		State.NextPlayer = this.NextPlayer;
+		
 		return State;
 	}
 
