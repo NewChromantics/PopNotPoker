@@ -265,8 +265,10 @@ class TMinesweeperClient
 	{
 		//	create stuff
 		//	we want this to fill really
-		const Rect = 'GameWindow';
+		const Rect = ['10vmin','10vmin','80vmin','80vmin'];
+		//const Rect = 'GameWindow';
 		this.Window = new Pop.Gui.Window('MinesweeperGuiWindow',Rect);
+		this.Window.EnableScrollbars(false,false);
 		this.RenderWindow.Show(this.Window);
 	}
 	
