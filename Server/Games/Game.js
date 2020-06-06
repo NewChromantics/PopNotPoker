@@ -32,18 +32,18 @@ class TGame
 		return State;
 	}
 
-	AddPlayer(PlayerRef)
+	AddPlayer(PlayerHash)
 	{
-		this.Players.push(PlayerRef);
+		this.Players.push(PlayerHash);
 		return "Some player meta for game";
 	}
 	
-	DeletePlayer(PlayerRef)
+	DeletePlayer(PlayerHash)
 	{
 		//	cut player out
-		Pop.Debug(`Players before delete; ${this.Players} ... deleting ${PlayerRef}`);
-		this.Players = this.Players.filter( p => p!=PlayerRef );
-		Pop.Debug(`Players are now; ${this.Players} after deleting ${PlayerRef}`);
+		Pop.Debug(`Players before delete; ${this.Players} ... deleting ${PlayerHash}`);
+		this.Players = this.Players.filter( p => p!=PlayerHash );
+		Pop.Debug(`Players are now; ${this.Players} after deleting ${PlayerHash}`);
 	}
 	
 	//	this gets the next player, but does NOT move it along
@@ -97,5 +97,5 @@ class TGame
 	}
 	
 	async WaitForNextMove()			{	throw `Game has not overloaded WaitForNextMove`;	}
-	async InitNewPlayer(PlayerRef)	{	throw `Game has not overloaded InitNewPlayer`;	}
+	async InitNewPlayer(PlayerHash)	{	throw `Game has not overloaded InitNewPlayer`;	}
 }

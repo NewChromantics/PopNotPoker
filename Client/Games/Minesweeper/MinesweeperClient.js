@@ -172,6 +172,7 @@ class TMinesweeperWindow
 		
 		//	render game grid with a game shader
 		//	in the center
+		try
 		{
 			const RenderTargetRect = RenderTarget.GetScreenRect();
 			let w = RenderTargetRect[2];
@@ -213,6 +214,10 @@ class TMinesweeperWindow
 			this.WindowGridRect[2] *= RenderTargetRect[2];
 			this.WindowGridRect[3] *= RenderTargetRect[3];
 		}
+		catch(e)
+		{
+			RenderTarget.ClearColour(1,0,0);
+		}
 	}
 	
 	OnMouseDown(Windowx,Windowy)
@@ -252,7 +257,7 @@ class PlayerWindow
 {
 	constructor(OnLocalNameChanged)
 	{
-		this.Window = new Pop.Gui.Window('Players',['20vmin','80vmin','30vmin','30vmin']);
+		this.Window = new Pop.Gui.Window('Players',['20vmin','80vmin','30vmin','50vmin']);
 		this.MovePlayer = null;
 		this.PlayerLabels = {};
 		this.LastState = null;
@@ -284,23 +289,24 @@ class PlayerWindow
 		//	create/update labels
 		function UpdatePlayerLabel(Player)
 		{
-			if ( !this.PlayerLabels.hasOwnProperty(Player.Name) )
-				this.PlayerLabels[Player.Name] = new Pop.Gui.Label(this.Window,[0,0,40,20]);
+			const Hash = Player.Hash;
+			if ( !this.PlayerLabels.hasOwnProperty(Hash) )
+				this.PlayerLabels[Hash] = new Pop.Gui.Label(this.Window,[0,0,40,20]);
 
-			const Label = this.PlayerLabels[Player.Name];
+			const Label = this.PlayerLabels[Hash];
 
 			let LabelText = `${Player.Name} (<b>${Player.Score}</b>)`;
 			if ( Player.State == 'Waiting' )	LabelText += ' joining...';
 			if ( Player.State == 'Ghost' )		LabelText += ' &#9760;';
-			if ( Player.Name == CurrentPlayer )	LabelText += ' &larr;';
+			if ( Player.Hash == CurrentPlayer )	LabelText += ' &larr;';
 			Label.SetValue(LabelText);
 		}
 		Players.forEach(UpdatePlayerLabel.bind(this));
 		
 		//	re-set all positions
-		function SetLabelRect(Name,Index)
+		function SetLabelRect(Hash,Index)
 		{
-			const Label = this.PlayerLabels[Name];
+			const Label = this.PlayerLabels[Hash];
 			//	+1 as we're using 0 for our name atm
 			const Rect = this.GetTextBoxRect(Index+1);
 			Label.SetRect(Rect);
@@ -320,18 +326,16 @@ class PlayerWindow
 		
 		//	server should send this struct
 		const Players = [];
-		const PushPlayer = function(Name,State)
+		const PushPlayer = function(Player,State)
 		{
-			const Player = {};
-			Player.Name = Name;
 			Player.State = State;
 			Player.Score = 0;
 			Players.push(Player);
 		}.bind(this);
 		
-		function GetPlayer(Name)
+		function GetPlayer(Hash)
 		{
-			return Players.filter(p=>p.Name==Name)[0];
+			return Players.filter(p=>p.Hash==Hash)[0];
 		}
 		
 		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,'Active') );
@@ -341,22 +345,30 @@ class PlayerWindow
 		//	plus set their scores
 		if ( this.LastState && this.LastState.Scores )
 		{
-			for ( let [Name,Score] of Object.entries(this.LastState.Scores))
+			for ( let [Hash,Score] of Object.entries(this.LastState.Scores))
 			{
-				if ( !GetPlayer(Name) )
-					PushPlayer(Name,'Ghost');
-				const Player = GetPlayer(Name);
+				if ( !GetPlayer(Hash) )
+				{
+					const GhostPlayer = {};
+					GhostPlayer.Hash = Hash;
+					GhostPlayer.Name = 'Ghost';	//	we don't know their name any more
+					PushPlayer(GhostPlayer,'Ghost');
+				}
+				const Player = GetPlayer(Hash);
 				Player.Score = Score;
 			}
 		}
 		
 		//	look for ghosts who have labels but no score
 		//	(don't need this once we can delete labels)
-		function MarkLabelDead(Name)
+		function MarkLabelDead(Hash)
 		{
-			if ( GetPlayer(Name) )
+			if ( GetPlayer(Hash) )
 				return;
-			PushPlayer(Name,'Ghost');
+			const GhostPlayer = {};
+			GhostPlayer.Hash = Hash;
+			GhostPlayer.Name = 'Ghost';	//	we don't know their name any more
+			PushPlayer(GhostPlayer,'Ghost');
 		}
 		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));
 		
@@ -367,8 +379,9 @@ class PlayerWindow
 
 class TMinesweeperClient
 {
-	constructor()
+	constructor(SendCommand)
 	{
+		this.SendCommand = SendCommand;
 		this.RenderWindow = new TMinesweeperWindow();
 		this.PlayerWindow = new PlayerWindow( this.OnLocalNameChanged.bind(this) );
 		this.UpdateQueue = new Pop.PromiseQueue();
@@ -429,6 +442,7 @@ class TMinesweeperClient
 	{
 		//	send back to server
 		Pop.Debug(`Set name ${NewName}`);
+		this.SendCommand('SetName',NewName);
 	}
 	
 	OnAction(Packet)
@@ -471,5 +485,10 @@ class TMinesweeperClient
 		{
 			throw `Minesweeper doesn't know move ${Move}`;
 		}
+	}
+	
+	OnOtherMessage(Message)
+	{
+		this.PlayerWindow.Update(Message);
 	}
 }

@@ -7,18 +7,18 @@ const ErrorGui = new Pop.Gui.Label('Error');
 
 const Games = {};
 
-function AllocGame(GameType)
+function AllocGame(GameType,SendCommand)
 {
 	switch(GameType)
 	{
 		case null:	//	not currently reporting on server
 		case 'TMinesweeperGame':
-			return new TMinesweeperClient();
+			return new TMinesweeperClient(SendCommand);
 	}
 	throw `Unknown game type ${GameType}`;
 }
 
-function GetGame(Packet)
+function GetGame(Packet,SendCommand)
 {
 	//	gr: this probbaly shouldnt be under state
 	const GameHash = Packet.Meta.GameHash;
@@ -29,7 +29,7 @@ function GetGame(Packet)
 	if ( !Games.hasOwnProperty(GameHash) )
 	{
 		Pop.Debug(`New game! ${GameHash}:${GameType}`);
-		Games[GameHash] = AllocGame(GameType);
+		Games[GameHash] = AllocGame( GameType, SendCommand );
 	}
 	
 	return Games[GameHash];
@@ -98,6 +98,14 @@ function OnMoveRequest(Move,SendReply)
 
 function OnMessage(Message,SendReply)
 {
+	function SendCommand(Command,Data)
+	{
+		const Packet = {};
+		Packet.Command = Command;
+		Packet.Arguments = Data;
+		SendReply(Packet);
+	}
+	
 	function SendReplyWithHash(Reply)
 	{
 		Reply.Hash = Message.Hash;
@@ -123,7 +131,7 @@ function OnMessage(Message,SendReply)
 		return;
 	}
 	
-	const Game = GetGame(Message);
+	const Game = GetGame(Message,SendCommand);
 
 	//	update state
 	if ( Message.State )
@@ -139,7 +147,8 @@ function OnMessage(Message,SendReply)
 		ActionGui.SetValue(JSON.stringify(Message,null,'\t'));
 		Game.OnAction(Message);
 	}
-
+	
+	//	gr: should we ditch .command?
 	if ( Message.Command == 'Move' )
 	{
 		OnMoveRequest(Message.Move,SendReplyWithHash);
@@ -154,7 +163,11 @@ function OnMessage(Message,SendReply)
 	}
 	else if ( Message.Command )
 	{
-		//throw `Unhandled command ${Message.Command}`;
+		Pop.Debug(`Unhandled command ${Message.Command}`);
+	}
+	else
+	{
+		Game.OnOtherMessage(Message,SendReply);
 	}
 
 	DebugGui.SetValue(JSON.stringify(Message,null,'\t'));

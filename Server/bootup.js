@@ -128,17 +128,18 @@ async function RunGameLoop(Room)
 }
 
 let UniquePlayerRef = 1000;
-function AllocPlayerRef()
+function AllocPlayerHash()
 {
 	UniquePlayerRef++;
-	return `P${UniquePlayerRef}`;
+	return `P${UniquePlayerRef}P`;
 }
 
 class LobbyPlayer
 {
-	constructor(Player)
+	constructor(Hash)
 	{
-		this.Player = Player ? Player : AllocPlayerRef();
+		this.Hash = Hash ? Hash : AllocPlayerHash();
+		this.Name = CreateRandomHash(6);
 		this.Peer = null;
 		this.ReplyWaits = {};		//	[Command] = PromiseWaiting
 		this.OnJoinPromise = null;	//	this promise is resolved by the game allowing player in/out
@@ -169,7 +170,7 @@ class LobbyWebSocketServer
 	{
 		this.GameHash = CreateRandomHash();
 		this.WaitingPlayers = [];	//	list of players who want to join
-		this.Players = [];			//	players in the game LobbyPlayer
+		this.ActivePlayers = [];			//	players in the game LobbyPlayer
 		this.DeletedPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
 
 		//	semaphore to notify there are new players
@@ -188,12 +189,20 @@ class LobbyWebSocketServer
 	
 	GetMeta(Game)
 	{
+		function GetPublicMeta(Player)
+		{
+			const p = {};
+			p.Hash = Player.Hash;
+			p.Name = Player.Name;
+			return p;
+		}
+		
 		//	add player info
 		const Meta = {};
 		Meta.GameHash = this.GameHash;
 		Meta.GameType = Game ? Game.constructor.name : null;
-		Meta.ActivePlayers = this.Players.map( p => p.Player );
-		Meta.WaitingPlayers = this.WaitingPlayers.map( p => p.Player );
+		Meta.ActivePlayers = this.ActivePlayers.map(GetPublicMeta);
+		Meta.WaitingPlayers = this.WaitingPlayers.map(GetPublicMeta);
 		return Meta;
 	}
 	
@@ -214,7 +223,7 @@ class LobbyWebSocketServer
 		}
 		//	gr: don't ping peers, ping the peers we've ever seen
 		const WaitingPeers = this.WaitingPlayers.map(p=>p.Peer);
-		const ActivePeers = this.Players.map(p=>p.Peer);
+		const ActivePeers = this.ActivePlayers.map(p=>p.Peer);
 		//Pop.Debug(`PingLoop x${WaitingPeers} x${ActivePeers}`);
 		//const Peers = Socket.GetPeers();
 		WaitingPeers.forEach(SendPing.bind(this));
@@ -292,8 +301,17 @@ class LobbyWebSocketServer
 				return;
 			}
 			
+			if ( Packet.Command == 'SetName' )
+			{
+				//	turn to string in case of attack or future object
+				Player.Name = `${Packet.Arguments}`;
+				Pop.Debug(`Player name changed; ${JSON.stringify(Player)}`);
+				this.OnPlayersChanged(Player);
+				return;
+			}
+			
 			//	player specific command
-			throw `Command ${Packet.Command} for player ${Player.Player} not known`;
+			throw `Command ${Packet.Command} for player ${Player.Hash} not known`;
 		}
 		
 		if ( Packet.Command == 'Join' )
@@ -327,6 +345,12 @@ class LobbyWebSocketServer
 		}
 	}
 	
+	OnPlayersChanged(Player)
+	{
+		//	send out updated meta
+		this.SendToAllPlayers('MetaChanged',{});
+	}
+	
 	DisconnectPeer(Peer,Reason)
 	{
 		function MatchPlayer(Match)		{	return Match.Peer == Peer;	}
@@ -338,8 +362,8 @@ class LobbyWebSocketServer
 		//	pop player(should be 1) matching peer
 		const WaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
 		this.WaitingPlayers = this.WaitingPlayers.filter(MisMatchPlayer);
-		const ActivePlayers = this.Players.filter(MatchPlayer);
-		this.Players = this.Players.filter(MisMatchPlayer);
+		const ActivePlayers = this.ActivePlayers.filter(MatchPlayer);
+		this.ActivePlayers = this.ActivePlayers.filter(MisMatchPlayer);
 		const WaitingPlayer = WaitingPlayers.length ? WaitingPlayers[0] : null;
 		const ActivePlayer = ActivePlayers.length ? ActivePlayers[0] : null;
 
@@ -353,11 +377,12 @@ class LobbyWebSocketServer
 		
 		//	add to list of players that need to be cut from the game
 		if ( WaitingPlayer )
-			this.DeletedPlayers.push(WaitingPlayer.Player);
+			this.DeletedPlayers.push(WaitingPlayer.Hash);
 		if ( ActivePlayer )
-			this.DeletedPlayers.push(ActivePlayer.Player);
+			this.DeletedPlayers.push(ActivePlayer.Hash);
 	
 		//	todo: send disconnect notify packet
+		this.OnPlayersChanged();
 		
 		//	make sure its disconnected
 		//this.CurrentSocket.Disconnect(Peer);
@@ -365,20 +390,22 @@ class LobbyWebSocketServer
 	
 	MovePlayerFromWaitingToActive(Player)
 	{
-		function MatchPlayer(Match)		{	return Match.Player == Player.Player;	}
+		function MatchPlayer(Match)		{	return Match.Hash == Player.Hash;	}
 		function MisMatchPlayer(Match)	{	return !MatchPlayer(Match);	}
 
 		//	should be one in waiting list, take it out
 		const MatchingWaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
 		if ( MatchingWaitingPlayers.length != 1 )
-			Pop.Debug(`There are ${MatchingWaitingPlayers.length} players ${Player.Player} in waiting list, should be 1`);
+			Pop.Debug(`There are ${MatchingWaitingPlayers.length} players ${Player.Hash} in waiting list, should be 1`);
 		this.WaitingPlayers = this.WaitingPlayers.filter(MisMatchPlayer);
 
 		//	should NOT be in player list. Add it
-		const MatchingActivePlayers = this.Players.filter(MatchPlayer);
+		const MatchingActivePlayers = this.ActivePlayers.filter(MatchPlayer);
 		if ( MatchingActivePlayers.length != 0 )
-			Pop.Debug(`There are ${MatchingActivePlayers.length} players ${Player.Player} in active list, should be 0`);
-		this.Players.push(Player);
+			Pop.Debug(`There are ${MatchingActivePlayers.length} players ${Player.Hash} in active list, should be 0`);
+		this.ActivePlayers.push(Player);
+		
+		this.OnPlayersChanged(Player);
 	}
 	
 	OnPeerTryJoin(Peer,Packet)
@@ -387,8 +414,9 @@ class LobbyWebSocketServer
 		//	new player who wants to join
 		const Player = new LobbyPlayer();
 		Player.Peer = Peer;
-		Pop.Debug(`Peer ${Peer} trying to join (player=${Player.Player})`);
+		Pop.Debug(`Peer ${Peer} trying to join (player=${Player.Hash})`);
 		this.WaitingPlayers.push(Player);
+		this.OnPlayersChanged(Player);
 		
 		//	this promise is resolved or rejected when the player is allowed into the room
 		Player.OnJoinPromise = Pop.CreatePromise();
@@ -399,15 +427,15 @@ class LobbyWebSocketServer
 			try
 			{
 				const SomeMetaFromGame = await Player.OnJoinPromise;
-				Pop.Debug(`OnPeerJoin resolved; Peer=${Peer} is Player=${Player}`);
+				Pop.Debug(`OnPeerJoin resolved; Peer=${Peer} is Player=${JSON.stringify(Player)}`);
 				//	notify player they're in
 				const Notify = {};
 				Notify.Command = 'JoinReply';
-				Notify.Player = Player.Player;
+				Notify.Player = Player.Hash;
 				Notify.Debug = SomeMetaFromGame;
 				Notify.Meta = Object.assign({},this.GetMeta());
 				this.SendToPeer(Peer,Notify);
-				Pop.Debug(`Peer(${Peer}) joined ${Player}`);
+				Pop.Debug(`Peer(${Peer}) joined ${JSON.stringify(Player)}`);
 			}
 			catch(e)
 			{
@@ -433,8 +461,8 @@ class LobbyWebSocketServer
 		{
 			try
 			{
-				Pop.Debug(`Adding new player ${Player.Player}`);
-				const NewPlayerMeta = AddPlayer(Player.Player);
+				Pop.Debug(`Adding new player ${Player.Hash}`);
+				const NewPlayerMeta = AddPlayer(Player.Hash);
 				
 				//	move player from waiting to player list
 				this.MovePlayerFromWaitingToActive(Player);
@@ -442,7 +470,7 @@ class LobbyWebSocketServer
 			}
 			catch(e)
 			{
-				Pop.Debug(`New player rejected ${Player.Player} ${e}`);
+				Pop.Debug(`New player rejected ${Player.Hash} ${e}`);
 				//	player rejected for some reason
 				Player.OnJoinPromise.Reject(e);
 			}
@@ -454,6 +482,8 @@ class LobbyWebSocketServer
 		
 		const DeletedPlayers = this.DeletedPlayers.splice(0);
 		DeletedPlayers.forEach(DeletePlayer);
+		
+		this.OnPlayersChanged();
 	}
 	
 	SendToAllPlayers(Thing,ThingObject)
@@ -484,11 +514,11 @@ class LobbyWebSocketServer
 		Peers.forEach(Send.bind(this));
 	}
 	
-	GetPeer(Player)
+	GetPeer(PlayerHash)
 	{
-		function MatchPlayer(Match)	{	return Match.Player == Player;	}
+		function MatchPlayer(Match)	{	return Match.Hash == PlayerHash;	}
 		const WaitingPlayers = this.WaitingPlayers.filter(MatchPlayer);
-		const ActivePlayers = this.Players.filter(MatchPlayer);
+		const ActivePlayers = this.ActivePlayers.filter(MatchPlayer);
 		if ( WaitingPlayers.length )
 			return WaitingPlayers[0].Peer;
 		if ( ActivePlayers.length )
@@ -496,13 +526,13 @@ class LobbyWebSocketServer
 		return null;
 	}
 	
-	GetPlayer(PeerOrPlayerRef)
+	GetPlayer(PeerOrPlayerHash)
 	{
-		const Peer = PeerOrPlayerRef;
-		const PlayerRef = PeerOrPlayerRef;
-		function MatchPeer(Player)	{	return Player.Peer == Peer || Player.Player==PlayerRef;	}
+		const Peer = PeerOrPlayerHash;
+		const PlayerHash = PeerOrPlayerHash;
+		function MatchPeer(Player)	{	return Player.Peer == Peer || Player.Hash==PlayerHash;	}
 		const WaitingPlayers = this.WaitingPlayers.filter(MatchPeer);
-		const ActivePlayers = this.Players.filter(MatchPeer);
+		const ActivePlayers = this.ActivePlayers.filter(MatchPeer);
 		if ( WaitingPlayers.length )
 			return WaitingPlayers[0];
 		if ( ActivePlayers.length )
@@ -534,7 +564,7 @@ class LobbyWebSocketServer
 		const Player = this.GetPlayer(PlayerRef);
 		if ( !Player )
 		{
-			//Pop.Debug(`Players: ${JSON.stringify(this.Players)}`);
+			//Pop.Debug(`Players: ${JSON.stringify(this.ActivePlayers)}`);
 			throw `SendToPlayerAndWaitForReply: No player found for ${PlayerRef}`;
 		}
 
