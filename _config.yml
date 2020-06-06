@@ -1,0 +1,6 @@
+# https://stackoverflow.com/a/32465659/355753
+gems:
+  - jekyll-redirect-from
+
+theme: jekyll-theme-cayman
+source: Client
