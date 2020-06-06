@@ -98,6 +98,7 @@ class TMinesweeperWindow
 	
 	Show(ParentWindow)
 	{
+		this.ParentWindow = ParentWindow;
 		const WindowName = 'Minesweeper';
 		const WindowContainer = ParentWindow.GetContainerElement();
 		this.Window = new Pop.Opengl.Window(WindowName,WindowContainer);
@@ -318,8 +319,12 @@ class TMinesweeperClient
 			async function Run()
 			{
 				//	update graphics
+				//	indiciate its your turn
+				this.Window.Flash(true);
 				//	wait for user to click
 				const ClickPos = await this.RenderWindow.WaitForClick();
+				//	taken interaction
+				this.Window.Flash(false);
 				SendReplyAction('PickCoord',ClickPos);
 			}
 			this.UpdateQueue.Push(Run.bind(this));
