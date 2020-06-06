@@ -138,7 +138,7 @@ class TMinesweeperWindow
 				const IsHidden = (Cell=='?');
 				const NeighbourCount = Number.isInteger(Cell) ? Cell : false;
 				const IsMine = (!IsHidden && NeighbourCount===false);
-				const StateValue = (IsHidden) ? 0 : 1;
+				const StateValue = (IsHidden) ? 0 : 255;
 				//	is flagged, is exploded etc
 				Pixels[PixelIndex+0] = IsMine ? 255 : NeighbourCount;
 				Pixels[PixelIndex+1] = StateValue;

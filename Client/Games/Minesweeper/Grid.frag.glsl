@@ -6,7 +6,7 @@ uniform sampler2D FontTexture;
 uniform float2 GridSize;
 
 #define STATE_HIDDEN	0
-#define STATE_REVEALED	1
+#define STATE_REVEALED	255
 #define MINE_NUMBER		255
 #define FONT_CHAR_COUNT	11
 
@@ -39,7 +39,9 @@ float3 GetNumberColour(int Number)
 
 void GetGridValue(out int NeighbourCount,out bool IsMine,out bool IsHidden)
 {
-	float4 Sample = texture2D( Texture, uv );
+	//float2 SampleUv = floor(uv * GridSize) / GridSize;
+	float2 SampleUv = uv;
+	float4 Sample = texture2D( Texture, SampleUv );
 	NeighbourCount = int(floor(Sample.x * 255.0));
 	int State = int(floor(Sample.y * 255.0));
 	IsMine = NeighbourCount == MINE_NUMBER;
@@ -140,6 +142,9 @@ float3 GetNumberColour(int Number,bool Hidden,float2 LocalUv)
 	return mix( MidGrey, FontColour, FontSample );
 }
 
+const bool Debug_Font = false;
+const bool Debug_FontTexture = false;
+const bool Debug_Data = false;
 
 void main()
 {
@@ -147,6 +152,34 @@ void main()
 	bool IsMine;
 	bool IsHidden;
 	GetGridValue( NeighbourCount, IsMine, IsHidden );
+
+	if ( Debug_Font )
+	{
+		float2 xy = uv * GridSize;
+		int x = int(floor(uv.x * GridSize.x));
+		int y = int(floor(uv.y * GridSize.y));
+		x += y*int(GridSize.x);
+		float2 LocalUv = fract( xy );
+		gl_FragColor = float4(LocalUv,0.0,1.0);
+		gl_FragColor.xyz = GetNumberColour(x,false,LocalUv);
+		//gl_FragColor.xyz = GetNumberColour(IsHidden?4:1,false,LocalUv);
+		return;
+	}
+	
+	if ( Debug_FontTexture )
+	{
+		float4 Sample = texture2D( FontTexture, uv );
+		gl_FragColor = Sample;
+		return;
+	}
+	
+	if ( Debug_Data )
+	{
+		float4 Sample = texture2D( Texture, uv );
+		gl_FragColor = Sample;
+		return;
+	}
+
 	float2 xy = uv * GridSize;
 	float2 LocalUv = fract( xy );
 
