@@ -129,7 +129,7 @@ function OnMessage(Message,SendReply)
 	if ( Message.State )
 	{
 		StateGui.SetValue(JSON.stringify(Message));
-		Game.UpdateState(Message.State);
+		Game.UpdateState(Message.State,Message);
 	}
 
 	//	render an action

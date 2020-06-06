@@ -248,12 +248,106 @@ class TMinesweeperWindow
 	}
 }
 
+class PlayerWindow
+{
+	constructor(OnLocalNameChanged)
+	{
+		this.Window = new Pop.Gui.Window('Players',['20vmin','80vmin','30vmin','30vmin']);
+		this.MovePlayer = null;
+		this.PlayerLabels = {};
+		
+		//	add an edit box for your name
+		const Rect = this.GetTextBoxRect(0);
+		this.LocalName = new Pop.Gui.TextBox(this.Window,Rect);
+		this.LocalName.SetValue('Your name');
+		this.LocalName.OnChanged = OnLocalNameChanged;
+		
+		//	add labels for other players as they come & go
+	}
+	
+	GetTextBoxRect(Index)
+	{
+		const Border = 5;
+		const Width = 100;
+		const Height = 20;
+		const x = Border;
+		const y = Border + ((Border+Height)*Index);
+		return [x,y,Width,Height];
+	}
+	
+	
+	UpdatePlayerList(Players)
+	{
+		//	todo: delete old labels
+		function MarkLabelDead(Name)
+		{
+			const Label = this.PlayerLabels[Name];
+			Label.Alive = false;
+			Label.SetValue(`${Name} (left)`);
+		}
+		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));
+		
+		//	create/update labels
+		function UpdatePlayerLabel(Player)
+		{
+			if ( !this.PlayerLabels.hasOwnProperty(Player.Name) )
+				this.PlayerLabels[Player.Name] = new Pop.Gui.Label(this.Window,[0,0,40,20]);
+
+			const Label = this.PlayerLabels[Player.Name];
+
+			let LabelText = Player.Name;
+			if ( Player.Waiting )	LabelText += ' joining...';
+			if ( Player.Turn )		LabelText += ' &larr;';
+			Label.SetValue(LabelText);
+		}
+		Players.forEach(UpdatePlayerLabel.bind(this));
+		
+		//	re-set all positions
+		function SetLabelRect(Name,Index)
+		{
+			const Label = this.PlayerLabels[Name];
+			//	+1 as we're using 0 for our name atm
+			const Rect = this.GetTextBoxRect(Index+1);
+			Label.SetRect(Rect);
+		}
+		Object.keys(this.PlayerLabels).forEach(SetLabelRect.bind(this));
+		
+	}
+	
+	Update(Packet)
+	{
+		//Pop.Debug(`Extract players from`,Packet);
+		
+		if ( Packet.Action && Packet.Action.Player )
+			this.MovePlayer = Packet.Action.Player;
+	
+		if ( !Packet.Meta )
+			return;
+		
+		//	server should send this struct
+		const Players = [];
+		const PushPlayer = function(Name,Waiting)
+		{
+			const Player = {};
+			Player.Name = Name;
+			Player.Waiting = Waiting;
+			Player.Turn = Name == this.MovePlayer;
+			Players.push(Player);
+		}.bind(this);
+		
+		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,false) );
+		Packet.Meta.WaitingPlayers.forEach( p => PushPlayer(p,true) );
+		
+		this.UpdatePlayerList(Players);
+	}
+}
 
 class TMinesweeperClient
 {
 	constructor()
 	{
 		this.RenderWindow = new TMinesweeperWindow();
+		this.PlayerWindow = new PlayerWindow( this.OnLocalNameChanged.bind(this) );
 		this.UpdateQueue = new Pop.PromiseQueue();
 		this.Update();
 	}
@@ -268,7 +362,7 @@ class TMinesweeperClient
 	{
 		//	create stuff
 		//	we want this to fill really
-		const Rect = ['10vmin','10vmin','80vmin','80vmin'];
+		const Rect = ['5vmin','5vmin','60vmin','60vmin'];
 		//const Rect = 'GameWindow';
 		this.Window = new Pop.Gui.Window('MinesweeperGuiWindow',Rect);
 		this.Window.EnableScrollbars(false,false);
@@ -286,8 +380,17 @@ class TMinesweeperClient
 		}
 	}
 	
-	UpdateState(State)
+	UpdateState(State,Packet)
 	{
+		try
+		{
+			this.PlayerWindow.Update(Packet);
+		}
+		catch(e)
+		{
+			Pop.Debug(`Error updating player window ${e}`);
+		}
+		
 		//	has this interrupted our move?
 		async function Run()
 		{
@@ -299,8 +402,16 @@ class TMinesweeperClient
 		this.UpdateQueue.Push(Run.bind(this));
 	}
 	
+	OnLocalNameChanged(NewName)
+	{
+		//	send back to server
+		Pop.Debug(`Set name ${NewName}`);
+	}
+	
 	OnAction(Packet)
 	{
+		this.PlayerWindow.Update(Packet);
+		
 		//	has this interrupted our move?
 		//	a move was made!
 		async function Run()
@@ -313,6 +424,8 @@ class TMinesweeperClient
 	
 	OnMoveRequest(Move,SendReplyAction)
 	{
+		this.PlayerWindow.Update(Move);
+		
 		//	need to update ui to do move,
 		//	but needs to be a promise we can cancel in case
 		//	server, say, times us out

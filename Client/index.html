@@ -6,9 +6,15 @@
 	/* disable scrolling on ios
 	 https://stackoverflow.com/a/57489918/355753
 	 */
-html, body
+
+body
 {
-	
+	background:		#0cc;
+}
+
+.PacketDebug
+{
+	xxdisplay:none;
 }
 
 #MoveButtonContainer
@@ -54,22 +60,23 @@ html, body
 	
 	<div id="GameWindow"></div>
 	
-	<div id=Error>
-		Error.
+	<div class=PacketDebug>
+		<div id=Error>
+			Error.
+		</div>
+		<div id=MoveButtonContainer>
+			Moves.
+		</div>
+		<div id=CurrentState>
+			State.
+		</div>
+		<div id=LastAction>
+			Last Action.
+		</div>
+		<div id=Debug>
+			Debug.
+		</div>
 	</div>
-	<div id=MoveButtonContainer>
-		Moves.
-	</div>
-	<div id=CurrentState>
-		State.
-	</div>
-	<div id=LastAction>
-		Last Action.
-	</div>
-	<div id=Debug>
-		Debug.
-	</div>
-
 
 	<script src='PopEngineCommon/PopWebApi.js'></script>
 	<script src='PopEngineCommon/PopApi.js'></script>
