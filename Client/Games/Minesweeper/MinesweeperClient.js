@@ -255,6 +255,7 @@ class PlayerWindow
 		this.Window = new Pop.Gui.Window('Players',['20vmin','80vmin','30vmin','30vmin']);
 		this.MovePlayer = null;
 		this.PlayerLabels = {};
+		this.LastState = null;
 		
 		//	add an edit box for your name
 		const Rect = this.GetTextBoxRect(0);
@@ -278,15 +279,6 @@ class PlayerWindow
 	
 	UpdatePlayerList(Players)
 	{
-		//	todo: delete old labels
-		function MarkLabelDead(Name)
-		{
-			const Label = this.PlayerLabels[Name];
-			Label.Alive = false;
-			Label.SetValue(`${Name} (left)`);
-		}
-		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));
-		
 		//	create/update labels
 		function UpdatePlayerLabel(Player)
 		{
@@ -295,9 +287,10 @@ class PlayerWindow
 
 			const Label = this.PlayerLabels[Player.Name];
 
-			let LabelText = Player.Name;
-			if ( Player.Waiting )	LabelText += ' joining...';
-			if ( Player.Turn )		LabelText += ' &larr;';
+			let LabelText = `${Player.Name} (<b>${Player.Score}</b>)`;
+			if ( Player.State == 'Waiting' )		LabelText += ' joining...';
+			if ( Player.State == 'Ghost' )		LabelText += ' (left)';
+			if ( Player.Name == this.MovePlayer )	LabelText += ' &larr;';
 			Label.SetValue(LabelText);
 		}
 		Players.forEach(UpdatePlayerLabel.bind(this));
@@ -317,27 +310,55 @@ class PlayerWindow
 	Update(Packet)
 	{
 		//Pop.Debug(`Extract players from`,Packet);
-		
-		if ( Packet.Action && Packet.Action.Player )
-			this.MovePlayer = Packet.Action.Player;
+		if ( Packet.State )
+			this.LastState = Packet.State;
 	
 		if ( !Packet.Meta )
 			return;
 		
 		//	server should send this struct
 		const Players = [];
-		const PushPlayer = function(Name,Waiting)
+		const PushPlayer = function(Name,State)
 		{
 			const Player = {};
 			Player.Name = Name;
-			Player.Waiting = Waiting;
-			Player.Turn = Name == this.MovePlayer;
+			Player.State = State;
+			Player.Score = 0;
 			Players.push(Player);
 		}.bind(this);
 		
-		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,false) );
-		Packet.Meta.WaitingPlayers.forEach( p => PushPlayer(p,true) );
+		function GetPlayer(Name)
+		{
+			return Players.filter(p=>p.Name==Name)[0];
+		}
 		
+		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,'Active') );
+		Packet.Meta.WaitingPlayers.forEach( p => PushPlayer(p,'Waiting') );
+		
+		//	look for ghosts in the score list
+		//	plus set their scores
+		if ( this.LastState && this.LastState.Scores )
+		{
+			for ( let [Name,Score] of Object.entries(this.LastState.Scores))
+			{
+				if ( !GetPlayer(Name) )
+					PushPlayer(Name,'Ghost');
+				const Player = GetPlayer(Name);
+				Player.Score = Score;
+			}
+		}
+		
+		//	look for ghosts who have labels but no score
+		//	(don't need this once we can delete labels)
+		function MarkLabelDead(Name)
+		{
+			if ( GetPlayer(Name) )
+				return;
+			PushPlayer(Name,'Ghost');
+		}
+		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));
+		
+
 		this.UpdatePlayerList(Players);
 	}
 }

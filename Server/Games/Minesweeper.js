@@ -62,7 +62,7 @@ function GetNeighbourCount(x,y,Map)
 	MineCount += IsMine01( 0, 1);
 	MineCount += IsMine01( 1, 1);
 	
-	Pop.Debug(`Counted ${CheckedMines} == ${MineCount}`);
+	//Pop.Debug(`Counted ${CheckedMines} == ${MineCount}`);
 	
 	return MineCount;
 }
@@ -122,7 +122,7 @@ function InitGameMap(Size,SafePosition,MineCount)
 	//	pre-calc the neighbour counts
 	//	could do it live in case we bake bad data?
 	WriteNeighbourCounts(Map);
-	Pop.Debug(`Map with GetNeighbourCount: ${JSON.stringify(Map,null,'\t')}`);
+	//Pop.Debug(`Map with GetNeighbourCount: ${JSON.stringify(Map,null,'\t')}`);
 	return Map;
 }
 
@@ -264,11 +264,32 @@ class TMinesweeperGame extends TGame
 			const Neighbours = PrivateMap[x][y];
 			return Neighbours;
 		}
+		
 		//	get the state, but write in neighbour counts on revealed mines
 		const State = Object.assign({},this.State);
 		if ( PrivateMap )
 			State.Map = DoubleArray_Map( State.Map, ReplaceRevealedWithNeighbourCount );
+		
+		//	add scores to state
+		State.Scores = this.GetPlayerScores();
+		
 		return super.GetPublicState(State);
+	}
+	
+	GetPlayerScores()
+	{
+		const Scores = {};
+		function EnumCell(Cell,x,y)
+		{
+			if ( Cell == Minesweeper_Revealed )
+				return;
+			if ( Cell == Minesweeper_Hidden )
+				return;
+			//	else cell must be a player name
+			Scores[Cell] = (Scores[Cell]||0)+1;
+		}
+		DoubleArray_Map( this.State.Map, EnumCell.bind(this) );
+		return Scores;
 	}
 	
 	async InitNewPlayer(PlayerRef)
