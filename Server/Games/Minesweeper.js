@@ -409,9 +409,14 @@ class TMinesweeperGame extends TGame
 		{
 			PublicMineCount += Score;
 			if ( Score > BestScore )
+			{
 				BestPlayers = [Player];
+				BestScore = Score;
+			}
 			else if ( Score == BestScore )
+			{
 				BestPlayers.push(Player);
+			}
 		}
 		
 		if ( PublicMineCount < MineCount )
