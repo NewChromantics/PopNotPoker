@@ -289,7 +289,7 @@ class PlayerWindow
 
 			let LabelText = `${Player.Name} (<b>${Player.Score}</b>)`;
 			if ( Player.State == 'Waiting' )		LabelText += ' joining...';
-			if ( Player.State == 'Ghost' )		LabelText += ' (left)';
+			if ( Player.State == 'Ghost' )			LabelText += ' &#9760;';
 			if ( Player.Name == this.MovePlayer )	LabelText += ' &larr;';
 			Label.SetValue(LabelText);
 		}
