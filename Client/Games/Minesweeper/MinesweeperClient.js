@@ -34,6 +34,7 @@ function LoadFontTexture(RenderTarget)
 	const FontCharCount = 11;
 	const Image = new Pop.Image();
 	Image.WritePixels( FontWidth, FontHeight*FontCharCount, FontPixels, 'Greyscale' );
+	Image.SetLinearFilter(false);
 	return Image;
 }
 
@@ -140,13 +141,14 @@ class TMinesweeperWindow
 				const IsMine = (!IsHidden && NeighbourCount===false);
 				const StateValue = (IsHidden) ? 0 : 255;
 				//	is flagged, is exploded etc
-				Pixels[PixelIndex+0] = IsMine ? 255 : NeighbourCount;
+				Pixels[PixelIndex+0] = IsMine ? 255 : (NeighbourCount);
 				Pixels[PixelIndex+1] = StateValue;
 				Pixels[PixelIndex+2] = 0;
 				Pixels[PixelIndex+3] = 255;
 			}
 		}
 		GridPixels.Pixels = new Uint8Array(Pixels);
+		Pop.Debug(`New GridPixels; ${GridPixels.Pixels}`);
 		this.State = State;
 	}
 	

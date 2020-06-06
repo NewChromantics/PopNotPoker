@@ -10,6 +10,16 @@ uniform float2 GridSize;
 #define MINE_NUMBER		255
 #define FONT_CHAR_COUNT	11
 
+//	todo: better function name
+int SampleFloatToInt(float f)
+{
+	//	on ios (or ES2) proper int support isn't required, plus we have float innaccuracies
+	//	even with high precision
+	//	so int(f) or int(floor(f)) can sometimes not distinguish samples
+	//	we offset the float slightly to fix it
+	return int( floor( f * 255.5 ) );
+}
+
 float3 GetNumberColour(int Number)
 {
 	float f = 1.0;
@@ -39,11 +49,13 @@ float3 GetNumberColour(int Number)
 
 void GetGridValue(out int NeighbourCount,out bool IsMine,out bool IsHidden)
 {
+	//	gr:I thought the uv sampling might be at texel edge causing bad read, but its not that
 	//float2 SampleUv = floor(uv * GridSize) / GridSize;
+	//SampleUv += float2(0.5,0.5) / GridSize;
 	float2 SampleUv = uv;
 	float4 Sample = texture2D( Texture, SampleUv );
-	NeighbourCount = int(floor(Sample.x * 255.0));
-	int State = int(floor(Sample.y * 255.0));
+	NeighbourCount = SampleFloatToInt(Sample.x);
+	int State = SampleFloatToInt(Sample.y);
 	IsMine = NeighbourCount == MINE_NUMBER;
 	IsHidden = State == STATE_HIDDEN;
 }
@@ -177,6 +189,33 @@ void main()
 	{
 		float4 Sample = texture2D( Texture, uv );
 		gl_FragColor = Sample;
+		
+		int x = SampleFloatToInt(Sample.x);
+		if ( x == 0 )			gl_FragColor.xyz = float3(1,0,0);
+		else if ( x == 1 )		gl_FragColor.xyz = float3(1,1,0);
+		else if ( x == 2 )		gl_FragColor.xyz = float3(0,1,0);
+		else if ( x == 3 )		gl_FragColor.xyz = float3(0,1,1);
+		else if ( x == 4 )		gl_FragColor.xyz = float3(0,0,1);
+		else if ( x == 255 )	gl_FragColor.xyz = float3(0,0,0);
+		/*
+		 if ( x == 0.0/255.0 )
+		 gl_FragColor.xyz = float3(1,0,0);
+		 else if ( Sample.x == (1.0/255.0) )
+		 gl_FragColor.xyz = float3(1,1,0);
+		 else if ( Sample.x > (1.0/255.0) )
+		 gl_FragColor.xyz = float3(1,0,1);
+		 else if ( Sample.x == (2.0/255.0) )
+		 gl_FragColor.xyz = float3(0,1,0);
+		 else if ( Sample.x == (3.0/255.0) )
+		 gl_FragColor.xyz = float3(0,1,1);
+		 else if ( Sample.x == (4.0/255.0) )
+		 gl_FragColor.xyz = float3(0,0,1);
+		 else if ( Sample.x == (255.0/255.0) )
+		 gl_FragColor.xyz = float3(0,0,0);
+		 */
+		//gl_FragColor.y = 0.0;
+		//gl_FragColor.z = 0.0;
+		gl_FragColor.w = 1.0;
 		return;
 	}
 
