@@ -394,9 +394,29 @@ class TMinesweeperGame extends TGame
 		return Move;
 	}
 	
-	GetEndGame()
+	//	return false, or array of players. multiple=draw
+	GetWinner()
 	{
-		//	todo!
-		return false;
+		//	count mines
+		const MineCount = this.GetMineCount();
+		
+		//	count scores
+		const Scores = this.GetPlayerScores();
+		let PublicMineCount = 0;
+		let BestScore = 0;
+		let BestPlayers = [];
+		for ( let [Player,Score] of Object.entries(Scores) )
+		{
+			PublicMineCount += Score;
+			if ( Score > BestScore )
+				BestPlayers = [Player];
+			else if ( Score == BestScore )
+				BestPlayers.push(Player);
+		}
+		
+		if ( PublicMineCount < MineCount )
+			return false;
+		
+		return BestPlayers;
 	}
 }

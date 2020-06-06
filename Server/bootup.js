@@ -97,11 +97,11 @@ async function GameIteration(Game,Room)
 	
 	//	move occured, assume state has updated, loop around
 	//	check for end of game and break out
-	const EndOfGame = Game.GetEndGame();
-	if ( EndOfGame )
+	const GameEndWinners = Game.GetWinner();
+	if ( GameEndWinners )
 	{
-		SendToAllPlayers('EndOfGame',EndOfGame);
-		return EndOfGame;
+		Room.SendToAllPlayers('EndOfGame',GameEndWinners);
+		return GameEndWinners;
 	}
 }
 
@@ -112,6 +112,9 @@ async function RunGameLoop(Room)
 		Pop.Debug(`New Game!`);
 
 		const Game = new TMinesweeperGame();
+		await Room.EnumNewGamePlayers( Game.AddPlayer.bind(Game) );
+		
+		let EndOfGameWinners = null;
 		while(true)
 		{
 			//	check for new players
@@ -119,11 +122,13 @@ async function RunGameLoop(Room)
 			
 			//	todo: check for all players quit
 			//	do a game iteration and see if it's finished
-			const EndOfGame = await GameIteration(Game,Room);
-			if ( !EndOfGame )
-				continue;
+			EndOfGameWinners = await GameIteration(Game,Room);
+			if ( EndOfGameWinners )
+				break;
 		}
 		
+		//	report generic win
+		Room.IncreasePlayerWins(EndOfGameWinners);
 	}
 }
 
@@ -143,6 +148,7 @@ class LobbyPlayer
 		this.Peer = null;
 		this.ReplyWaits = {};		//	[Command] = PromiseWaiting
 		this.OnJoinPromise = null;	//	this promise is resolved by the game allowing player in/out
+		this.Wins = 0;
 	}
 	
 	RejectWaits(Reason)
@@ -170,8 +176,9 @@ class LobbyWebSocketServer
 	{
 		this.GameHash = CreateRandomHash();
 		this.WaitingPlayers = [];	//	list of players who want to join
-		this.ActivePlayers = [];			//	players in the game LobbyPlayer
-		this.DeletedPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
+		this.ActivePlayers = [];	//	players in the game LobbyPlayer
+		this.DeletingPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
+		this.DeletedPlayers = [];	//	stored old players for scores
 
 		//	semaphore to notify there are new players
 		this.PlayerJoinRequestPromiseQueue = new Pop.PromiseQueue();
@@ -194,6 +201,7 @@ class LobbyWebSocketServer
 			const p = {};
 			p.Hash = Player.Hash;
 			p.Name = Player.Name;
+			p.Wins = Player.Wins;
 			return p;
 		}
 		
@@ -203,6 +211,8 @@ class LobbyWebSocketServer
 		Meta.GameType = Game ? Game.constructor.name : null;
 		Meta.ActivePlayers = this.ActivePlayers.map(GetPublicMeta);
 		Meta.WaitingPlayers = this.WaitingPlayers.map(GetPublicMeta);
+		Meta.DeletingPlayers = this.DeletingPlayers.map(GetPublicMeta);
+		Meta.DeletedPlayers = this.DeletedPlayers.map(GetPublicMeta);
 		return Meta;
 	}
 	
@@ -377,9 +387,9 @@ class LobbyWebSocketServer
 		
 		//	add to list of players that need to be cut from the game
 		if ( WaitingPlayer )
-			this.DeletedPlayers.push(WaitingPlayer.Hash);
+			this.DeletingPlayers.push(WaitingPlayer.Hash);
 		if ( ActivePlayer )
-			this.DeletedPlayers.push(ActivePlayer.Hash);
+			this.DeletingPlayers.push(ActivePlayer.Hash);
 	
 		//	todo: send disconnect notify packet
 		this.OnPlayersChanged();
@@ -454,6 +464,35 @@ class LobbyWebSocketServer
 		this.PlayerJoinRequestPromiseQueue.Push();
 	}
 	
+	async EnumNewGamePlayers(AddPlayer)
+	{
+		const RejectedPlayers = [];
+		
+		function TryJoin(Player)
+		{
+			try
+			{
+				Pop.Debug(`Adding new player ${Player.Hash}`);
+				const NewPlayerMeta = AddPlayer(Player.Hash);
+				Player.GamePlayerMeta = NewPlayerMeta;
+				//	move player from waiting to player list
+				//this.MovePlayerFromWaitingToActive(Player);
+				//Player.OnJoinPromise.Resolve(NewPlayerMeta);
+			}
+			catch(e)
+			{
+				Pop.Debug(`Existing player in new game rejected ${Player.Hash} ${e}`);
+				const Rejection = {};
+				Rejection.Exception = e;
+				Rejection.Player = Player;
+				RejectedPlayers.push(Rejection);
+			}
+		}
+		this.ActivePlayers.forEach(TryJoin.bind(this));
+		
+		RejectedPlayers.forEach( r => this.DisconnectPeer(r.Player.Peer,r.Exception) );
+	}
+	
 	async EnumNewPlayers(AddPlayer,DeletePlayer)
 	{
 		//	for any waiting player they should do a request
@@ -463,6 +502,7 @@ class LobbyWebSocketServer
 			{
 				Pop.Debug(`Adding new player ${Player.Hash}`);
 				const NewPlayerMeta = AddPlayer(Player.Hash);
+				Player.GamePlayerMeta = NewPlayerMeta;
 				
 				//	move player from waiting to player list
 				this.MovePlayerFromWaitingToActive(Player);
@@ -480,8 +520,9 @@ class LobbyWebSocketServer
 		const WaitingPlayers = this.WaitingPlayers.slice();
 		WaitingPlayers.forEach(TryJoin.bind(this));
 		
-		const DeletedPlayers = this.DeletedPlayers.splice(0);
-		DeletedPlayers.forEach(DeletePlayer);
+		const DeletingPlayers = this.DeletingPlayers.splice(0);
+		this.DeletedPlayers.push(...DeletingPlayers);
+		DeletingPlayers.forEach(DeletePlayer);
 		
 		this.OnPlayersChanged();
 	}
@@ -526,6 +567,19 @@ class LobbyWebSocketServer
 		return null;
 	}
 	
+	IncreasePlayerWins(PlayerHashs)
+	{
+		function Increase(PlayerHash)
+		{
+			const Player = this.GetPlayer(PlayerHash);
+			if ( !Player )
+				return;
+			Player.Wins++;
+			this.OnPlayersChanged(Player);
+		}
+		PlayerHashs.forEach(Increase.bind(this));
+	}
+	
 	GetPlayer(PeerOrPlayerHash)
 	{
 		const Peer = PeerOrPlayerHash;
@@ -533,10 +587,12 @@ class LobbyWebSocketServer
 		function MatchPeer(Player)	{	return Player.Peer == Peer || Player.Hash==PlayerHash;	}
 		const WaitingPlayers = this.WaitingPlayers.filter(MatchPeer);
 		const ActivePlayers = this.ActivePlayers.filter(MatchPeer);
-		if ( WaitingPlayers.length )
-			return WaitingPlayers[0];
-		if ( ActivePlayers.length )
-			return ActivePlayers[0];
+		const DeletedPlayers = this.DeletedPlayers.filter(MatchPeer);
+		const DeletingPlayers = this.DeletingPlayers.filter(MatchPeer);
+		if ( WaitingPlayers.length )	return WaitingPlayers[0];
+		if ( ActivePlayers.length )		return ActivePlayers[0];
+		if ( DeletedPlayers.length )	return DeletedPlayers[0];
+		if ( DeletingPlayers.length )	return DeletingPlayers[0];
 		return null;
 	}
 	
