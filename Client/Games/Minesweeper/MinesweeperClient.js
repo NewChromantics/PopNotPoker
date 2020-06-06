@@ -297,8 +297,10 @@ class PlayerWindow
 
 			let LabelText = `${Player.Name} (<b>${Player.Score}</b>)`;
 			if ( Player.State == 'Waiting' )	LabelText += ' joining...';
-			if ( Player.State == 'Ghost' )		LabelText += ' &#9760;';
-			if ( Player.Hash == CurrentPlayer )	LabelText += ' &larr;';
+			if ( Player.State == 'Ghost' )		LabelText += ' &#9760;';	//	skull
+			if ( Player.Hash == CurrentPlayer )	LabelText += ' &larr;';	//	left arrow
+			for ( let i=0;	i<Player.Wins;	i++ )
+				LabelText += '&#11088;';	//	star
 			Label.SetValue(LabelText);
 		}
 		Players.forEach(UpdatePlayerLabel.bind(this));
