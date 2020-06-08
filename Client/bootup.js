@@ -218,6 +218,8 @@ async function ConnectToServerLoop(GetAddress,OnMessage)
 		{
 			Pop.Debug(`ConnectToServerLoop error ${e}`);
 		}
+		//	without this, a code error kinda takes down chrome
+		await Pop.Yield(100);
 	}
 }
 
@@ -225,13 +227,22 @@ let ConnectTry = null;
 function GetNextAddress()
 {
 	const Addresses = [];
-	Addresses.push(['86.18.68.20',10001]);
-	Addresses.push(['86.18.68.20',10002]);
-	Addresses.push(['86.18.68.20',10003]);
-	Addresses.push(['localhost',10001]);
-	Addresses.push(['localhost',10002]);
-	Addresses.push(['localhost',10003]);
-	ConnectTry = (ConnectTry===null) ? 0 : ConnectTry+1;
+
+	//	default combinations
+	let HostNames = ['FoxDrop.NewChromantics.com','localhost'];
+	let Ports = [10001,10002,10003,10001];
+
+	//	let user insert hostname/port
+	if (Pop.GetExeArguments().Hostname)
+		HostNames.splice(0,0,Pop.GetExeArguments().Hostname);
+	if (Pop.GetExeArguments().Port)
+		Ports.splice(0,0,Pop.GetExeArguments().Port);
+
+	for (let Hostname of HostNames)
+		for (let Port of Ports)
+			Addresses.push([Hostname,Port]);
+
+	ConnectTry = (ConnectTry === null) ? 0 : ConnectTry + 1;
 	return Addresses[ConnectTry%Addresses.length];
 }
 
