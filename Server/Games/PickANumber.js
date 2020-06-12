@@ -20,12 +20,6 @@ class TPickANumberGame extends TGame
 		return super.GetPublicState(this.State);
 	}
 	
-	async InitNewPlayer(PlayerRef)
-	{
-		if ( this.Players.length >= 2 )
-			throw `Player limit reached`;
-	}
-	
 	HasEnoughPlayers()
 	{
 		if ( this.Players.length == 0 )

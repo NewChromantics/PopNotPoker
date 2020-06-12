@@ -292,11 +292,6 @@ class TMinesweeperGame extends TGame
 		return Scores;
 	}
 	
-	async InitNewPlayer(PlayerRef)
-	{
-		//	no limit!
-	}
-	
 	HasEnoughPlayers()
 	{
 		if ( this.Players.length == 0 )

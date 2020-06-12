@@ -103,7 +103,4 @@ class TGame
 		this.LastPlayers.push(this.NextPlayer);
 		this.NextPlayer = null;
 	}
-	
-	async WaitForNextMove()			{	throw `Game has not overloaded WaitForNextMove`;	}
-	async InitNewPlayer(PlayerHash)	{	throw `Game has not overloaded InitNewPlayer`;	}
 }
