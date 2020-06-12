@@ -35,8 +35,9 @@ async function RunGameLoop(Room)
 	{
 		Pop.Debug(`New Game!`);
 
-		//const Game = new TMealDealGame();
-		const Game = new TMinesweeperGame();
+		const Game = new TMealDealGame();
+		//const Game = new TMinesweeperGame();
+		Room.SetGame(Game);
 		//	for players still in room from a previous game
 		//await Room.EnumNewGamePlayers( Game.AddPlayer.bind(Game) );
 		
@@ -87,10 +88,8 @@ async function RunGameLoop(Room)
 			const PlayersChangedPromise = Room.WaitForPlayerJoinRequest();
 			const Events = [GameEndPromise,PlayersChangedPromise];
 			
-			Pop.Debug(`await Promise.race = ${Promise.race}`);
 			EndOfGameWinners = await Promise.race(Events);
-			Pop.Debug(`GameEnd/PlayersChanged race=${EndOfGameWinners}`);
-
+			
 			//	do the synchronous player update
 			Pop.Debug(`Room.EnumNewPlayers`);
 			Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
@@ -169,7 +168,12 @@ class LobbyWebSocketServer
 		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
-	GetMeta(Game)
+	SetGame(Game)
+	{
+		this.GameType = Game.constructor.name;
+	}
+	
+	GetMeta()
 	{
 		function GetPublicMeta(Player)
 		{
@@ -183,7 +187,7 @@ class LobbyWebSocketServer
 		//	add player info
 		const Meta = {};
 		Meta.GameHash = this.GameHash;
-		Meta.GameType = Game ? Game.constructor.name : null;
+		Meta.GameType = this.GameType;
 		Meta.ActivePlayers = this.ActivePlayers.map(GetPublicMeta);
 		Meta.WaitingPlayers = this.WaitingPlayers.map(GetPublicMeta);
 		Meta.DeletingPlayers = this.DeletingPlayers.map(GetPublicMeta);
