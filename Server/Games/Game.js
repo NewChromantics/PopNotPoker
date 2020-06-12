@@ -34,6 +34,7 @@ class TGame
 
 	AddPlayer(PlayerHash)
 	{
+		Pop.Debug(`Adding player ${PlayerHash}`);
 		this.Players.push(PlayerHash);
 		return "Some player meta for game";
 	}
@@ -46,16 +47,20 @@ class TGame
 		Pop.Debug(`Players are now; ${this.Players} after deleting ${PlayerHash}`);
 	}
 	
+	
 	//	this gets the next player, but does NOT move it along
 	//	in case move is not completed. EndPlayerTurn() moves it along
-	GetNextPlayer()
+	GetCurrentPlayer()
 	{
 		if ( !this.Players.length )
 			throw `GetNextPlayer: No players to choose from`;
 		
 		//	player still pending
 		if ( this.NextPlayer !== null )
+		{
+			Pop.Debug(`GetCurrentPlayer NextPlayer = ${this.NextPlayer}`);
 			return this.NextPlayer;
+		}
 		
 		//	cull any players that have left from the played list
 		function IsPlayer(Player)
@@ -73,10 +78,12 @@ class TGame
 				continue;
 			//	hasn't played, set active
 			this.NextPlayer = Player;
+			Pop.Debug(`GetCurrentPlayer: ${Player} not played, is next`);
 			return Player;
 		}
 		
 		//	everyone has played, take the oldest one and return it
+		Pop.Debug(`GetCurrentPlayer: using oldest players; ${this.LastPlayers}`);
 		const FiloPlayer = this.LastPlayers.shift();
 		this.NextPlayer = FiloPlayer;
 		return FiloPlayer;
@@ -91,6 +98,7 @@ class TGame
 		if ( this.NextPlayer != ExpectedPlayer )
 			throw `EndPlayerTurn(${ExpectedPlayer}) should be ${this.NextPlayer}`;
 		
+		Pop.Debug(`Ending player's turn ${this.NextPlayer}`);
 		//	put this player at the end of the list
 		this.LastPlayers.push(this.NextPlayer);
 		this.NextPlayer = null;

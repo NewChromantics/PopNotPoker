@@ -8,6 +8,7 @@ Pop.Include = function(Filename)
 Pop.Include('PopEngineCommon/PopApi.js');
 Pop.Include('Games/Game.js');
 Pop.Include('Games/Minesweeper.js');
+Pop.Include('Games/MealDeal.js');
 //Pop.Include('Games/PickANumber.js');
 
 
@@ -27,83 +28,6 @@ function CreateRandomHash(Length=4)
 	return RandomString;
 }
 
-async function GameIteration(Game,Room)
-{
-	//	todo: wait for enough players, but we're not doing that at the same time as the iteration...
-	if ( !Game.HasEnoughPlayers() )
-	{
-		Pop.Debug(`Not enough players, waiting for player-join-request`);
-		await Room.WaitForPlayerJoinRequest();
-		return;
-	}
-		
-	const NextMove = await Game.GetNextMove();
-	{
-		const State = Game.GetPublicState();
-	
-		//	send state to all players
-		Room.SendToAllPlayers('State',State);
-	}
-	
-	async function WaitForMoveReply()
-	{
-		//	send next move to player who's move it is
-		try
-		{
-			while(true)
-			{
-				const NextMovePacket = NextMove;
-				Pop.Debug(`SendToPlayerAndWaitForReply ${JSON.stringify(NextMovePacket)}`);
-				//	wait for the reply and process it
-				const Reply = await Room.SendToPlayerAndWaitForReply('Move',NextMove.Player, NextMovePacket);
-				const MoveActionName = Reply.Action;
-				try
-				{
-					const Lambda = NextMove.Actions[MoveActionName].Lambda;
-					const Action = Lambda(...Reply.ActionArguments);
-					return Action;
-				}
-				catch(e)
-				{
-					//	error executing the move lambda, so illegal move
-					//	try again by resending request
-					//	notify user with extra meta
-					Pop.Debug(`Last move error; ${e} trying again`);
-					NextMove.LastMoveError = e;
-					continue;
-				}
-			}
-		}
-		catch(e)
-		{
-			//	on error, move is forfeit'd (player timeout/disconnect etc)
-			Pop.Debug(`Player move reply failed: ${e}. Forfeiting`);
-			await Pop.Yield(100);	//	in case we get stuck on code error
-			//	gr: this should now be an error and go forfeited
-			return NextMove.Forfeit(e);
-		}
-	}
-	
-	//	do the move, grab the resulting movement when finished
-	const Action = await WaitForMoveReply();
-	
-	//	send something showing what their [public] move was
-	{
-		const State = Game.GetPublicState();
-		Room.SendToAllPlayers('State',State);
-		Room.SendToAllPlayers('Action',Action);
-		Pop.Debug(`On Action ${Action}`);
-	}
-	
-	//	move occured, assume state has updated, loop around
-	//	check for end of game and break out
-	const GameEndWinners = Game.GetWinner();
-	if ( GameEndWinners )
-	{
-		Room.SendToAllPlayers('EndOfGame',GameEndWinners);
-		return GameEndWinners;
-	}
-}
 
 async function RunGameLoop(Room)
 {
@@ -111,24 +35,75 @@ async function RunGameLoop(Room)
 	{
 		Pop.Debug(`New Game!`);
 
+		//const Game = new TMealDealGame();
 		const Game = new TMinesweeperGame();
-		await Room.EnumNewGamePlayers( Game.AddPlayer.bind(Game) );
+		//	for players still in room from a previous game
+		//await Room.EnumNewGamePlayers( Game.AddPlayer.bind(Game) );
 		
-		let EndOfGameWinners = null;
-		while(true)
+		
+		//	gr: this func could call the lambda and retry automatically
+		async function SendMoveAndWait(Player,Move)
 		{
-			//	check for new players
-			await Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
-			
-			//	todo: check for all players quit
-			//	do a game iteration and see if it's finished
-			EndOfGameWinners = await GameIteration(Game,Room);
-			if ( EndOfGameWinners )
-				break;
+			const Reply = await Room.SendToPlayerAndWaitForReply('Move', Player, Move );
+			return Reply;
 		}
+		
+		function OnStateChanged()
+		{
+			//	send state to all players
+			const State = Game.GetPublicState();
+			Room.SendToAllPlayers('State',State);
+		}
+		
+		function OnAction(Action)
+		{
+			Pop.Debug(`On Action ${JSON.stringify(Action)}`);
+			OnStateChanged();
+			Room.SendToAllPlayers('Action',Action);
+		}
+		
+		//	auto wait-for-enough players before we start the loop
+		//	so every game starts with enough players and doesnt need extra code
+		while ( !Game.HasEnoughPlayers() )
+		{
+			await Room.WaitForPlayerJoinRequest();
+		
+			//	do the synchronous player update
+			Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
+			OnStateChanged();
+		}
+		
+		//	run the async game
+		const GameEndPromise = Game.RunGame( SendMoveAndWait, OnStateChanged, OnAction );
+		
+		//	wait for the game to end, or players to join, or all players to leave and abort game
+		let EndOfGameWinners = null;
+		while( !EndOfGameWinners )
+		{
+			//	wait for something to happen, if the return of the promise is
+			//	not empty, then it's the game-winners
+			//	gr: if we get a game event, but lose the player request notification, that's okay
+			//		as the game will exit, and we'll just check over players again on the next game
+			const PlayersChangedPromise = Room.WaitForPlayerJoinRequest();
+			const Events = [GameEndPromise,PlayersChangedPromise];
+			
+			Pop.Debug(`await Promise.race = ${Promise.race}`);
+			EndOfGameWinners = await Promise.race(Events);
+			Pop.Debug(`GameEnd/PlayersChanged race=${EndOfGameWinners}`);
+
+			//	do the synchronous player update
+			Pop.Debug(`Room.EnumNewPlayers`);
+			Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
+			
+			//	if not enough players, forfeit game, or pause?
+		}
+		
+		Room.SendToAllPlayers('EndOfGame',EndOfGameWinners);
 		
 		//	report generic win
 		Room.IncreasePlayerWins(EndOfGameWinners);
+		
+		//	game exit!
 	}
 }
 

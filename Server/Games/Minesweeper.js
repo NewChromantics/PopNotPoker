@@ -304,7 +304,7 @@ class TMinesweeperGame extends TGame
 		return true;
 	}
 	
-	//	return true to end turn
+	//	return true if bomb clicked
 	HandleClick(x,y,Player)
 	{
 		const Size = this.GetSize();
@@ -332,66 +332,106 @@ class TMinesweeperGame extends TGame
 			//	click the secret cell and update the map
 			this.State.Private.Map[xy.x][xy.y] = Player;
 			this.State.Map[x][y] = Player;
-			//	don't advance
-			return false;
+			return true;
 		}
 		else
 		{
 			//	reveal via floodfill
 			FloodReveal(this.State.Map,x,y);
-			return true;
+			return false;
 		}
 	}
 	
-	async GetNextMove()
+	async RunGame(SendMoveAndWait,OnStateChanged,OnAction)
 	{
-		const NextPlayer = this.GetNextPlayer();
-		const Move = {};
-		Move.Player = NextPlayer;
-		Move.Actions = {};
+		while ( !this.GetWinner() )
+		{
+			Pop.Debug(`Iteration`);
+			OnStateChanged();
+			const Player = this.GetCurrentPlayer();
+			
+			try
+			{
+				const PickedBomb = await this.WaitPlayerPickCoord(Player,SendMoveAndWait,OnAction);
+				Pop.Debug(`${Player} WaitPlayerPickCoord PickedBomb = ${PickedBomb}`);
+				if ( !PickedBomb )
+				{
+					OnStateChanged();
+					this.EndPlayerTurn(Player);
+					continue;
+				}
+				Pop.Debug(`Picked bomb!`);
+			}
+			catch(e)
+			{
+				//	move can not be completed (eg. player left)
+				Pop.Debug(`Move not completed: ${e}`);
+				this.EndPlayerTurn(Player);
+				continue;
+			}
+		}
 		
+		const Winner = this.GetWinner();
+		return Winner;
+	}
+	
+	async WaitPlayerPickCoord(Player,SendMoveAndWait,OnAction)
+	{
 		function TryPickCoord(x,y)
 		{
-			const EndTurn = this.HandleClick(x,y,NextPlayer);
+			const ClickedBomb = this.HandleClick(x,y,Player);
 			
-			if ( EndTurn )
-				this.EndPlayerTurn(NextPlayer);	//	move to next player
-			
-			//	reply with move data send to all players
+			//	report move
 			const ActionRender = {};
-			ActionRender.Player = NextPlayer;
-			ActionRender.Debug = `Player ${NextPlayer} picked ${x},${y}`;
+			ActionRender.Player = Player;
+			ActionRender.Debug = `Player ${Player} picked ${x},${y}`;
 			ActionRender.Clicked = [x,y];
-			return ActionRender;
-		}
-		
-		function ForfeitMove(Error)
-		{
-			this.EndPlayerTurn(NextPlayer);	//	move to next player
+			OnAction(ActionRender);
 			
-			const ActionRender = {};
-			ActionRender.Player = NextPlayer;
-			ActionRender.Debug = `Move forfeigted ${Error}`;
-			return ActionRender;
+			return ClickedBomb;
 		}
 		
-		function IsFree(Index)
+		while(true)
 		{
-			return this.State.Numbers[Index] === null;
+			const Size = this.GetSize();
+			const Width = Size[0];
+			const Height = Size[1];
+			const xs = CreateArrayRange(0,Width);
+			const ys = CreateArrayRange(0,Height);
+			
+			const Move = {};
+			Move.Player = Player;
+			Move.Actions = {};
+			
+			Move.Actions.PickCoord = {};
+			Move.Actions.PickCoord.Lambda = TryPickCoord.bind(this);
+			Move.Actions.PickCoord.Arguments = [xs,ys];
+		
+			//	if this throws, player cannot complete move
+			const Reply = await SendMoveAndWait(Player,Move);
+			
+			//	execute reply
+			try
+			{
+				const MoveActionName = Reply.Action;
+				const Lambda = Move.Actions[MoveActionName].Lambda;
+				const Result = Lambda(...Reply.ActionArguments);
+				Pop.Debug(`Move lambda result=${Result}`);
+				return Result;
+			}
+			catch(e)	//	error with lambda
+			{
+				//	error executing the move lambda, so illegal move
+				//	try again by resending request
+				//	notify user with extra meta
+				Pop.Debug(`Last move error; ${e} trying again`);
+				const Error = {};
+				Error.Player = Player;
+				Error.BadMove = e;
+				OnAction(Error);
+				continue;
+			}
 		}
-
-		const Size = this.GetSize();
-		const Width = Size[0];
-		const Height = Size[1];
-		const xs = CreateArrayRange(0,Width);
-		const ys = CreateArrayRange(0,Height);
-		Move.Actions.PickCoord = {};
-		Move.Actions.PickCoord.Lambda = TryPickCoord.bind(this);
-		Move.Actions.PickCoord.Arguments = [xs,ys];
-		
-		Move.Forfeit = ForfeitMove.bind(this);
-		
-		return Move;
 	}
 	
 	//	return false, or array of players. multiple=draw
