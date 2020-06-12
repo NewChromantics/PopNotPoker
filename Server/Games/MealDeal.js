@@ -19,8 +19,8 @@ const ActionCards =
 
 function CreateCardDeck()
 {
-	const MealPacks = 3;
-	const ActionPacks = 4;
+	const MealPacks = 6;
+	const ActionPacks = 6;
 
 	let Deck = [];
 	for ( let i=0;	i<MealPacks;	i++ )
@@ -174,6 +174,15 @@ class TMealDealGame extends TGame
 		return Result;
 	}
 	
+	PopPlayerHandCard(Player,Card)
+	{
+		const Hand = this.State.PlayerHands[Player];
+		const Index = Hand.indexOf(Card);
+		if ( Index < 0 )
+			throw `Tried to pop card (${Card}) from Player(${Player})'s hand, (${Hand} but doesnt exist (${Index})`;
+		Hand.splice(Index,1);
+	}
+	
 	//	return the card played, just so we know if they end their turn with false
 	async WaitForPlayedCard(Player,SendMoveAndWait,OnAction)
 	{
@@ -188,6 +197,7 @@ class TMealDealGame extends TGame
 		//	if food, place on deck
 		if ( true )
 		{
+			this.PopPlayerHandCard(Player,PickedCard);
 			this.State.PlayerBoards[Player].push(PickedCard);
 			
 			const Action = {};
