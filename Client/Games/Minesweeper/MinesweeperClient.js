@@ -257,7 +257,7 @@ class PlayerWindow
 {
 	constructor(OnLocalNameChanged)
 	{
-		this.Window = new Pop.Gui.Window('Players',['20vmin','80vmin','30vmin','50vmin']);
+		this.Window = new Pop.Gui.Window('Players',['65vmin','30vmin','30vmin','60vmin']);
 		this.MovePlayer = null;
 		this.PlayerLabels = {};
 		this.LastState = null;
@@ -402,7 +402,7 @@ class TMinesweeperClient
 	{
 		//	create stuff
 		//	we want this to fill really
-		const Rect = ['5vmin','5vmin','60vmin','60vmin'];
+		const Rect = ['5vmin','5vmin','55vmin','55vmin'];
 		//const Rect = 'GameWindow';
 		this.Window = new Pop.Gui.Window('MinesweeperGuiWindow',Rect);
 		this.Window.EnableScrollbars(false,false);
