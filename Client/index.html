@@ -59,6 +59,20 @@ body
 </head>
 <body>
 	
+	<div class="PopGuiWindow" id="HelpWindow" style="position: absolute; left: 10vmin; bottom: 10vmax; width: 70vmin; height: 20vmax; max-height:20vmin; z-index: 99;">
+		<div class="PopGuiTitleBar" style="pointer-events: none;">
+			<div class="PopGuiTitleText">Help</div>
+		</div>
+		<div class="PopGuiIconView" style="display: block; position: absolute; left: 0%; right: 0%; top: 0px; bottom: 0px; overflow: scroll;">
+			<ul style="padding-left:20px">
+				<li>In multiplayer minesweeper, take turns to try and FIND the mines by clicking on them!</li>
+				<li>A gold star &#11088; for every game winner.</li>
+				<li>The window flashes when it's your turn!</li>
+				<li>Like the sands of time, it never ends.</li>
+			</ul>
+		</div>
+	</div>
+	
 	<div id="GameWindow"></div>
 	
 	<div id=DebugGui>
@@ -97,6 +111,8 @@ body
 	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
 	
 	<script>
+		SetGuiControl_Draggable(document.getElementById('HelpWindow'));
+		
 		/*
 		async function Bootup()
 		{
