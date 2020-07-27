@@ -238,8 +238,16 @@ class TMealDealGame extends TGame
 
 				//	if forfeit
 				if ( !PlayedCard )
+				{
+					Pop.Debug(`Player ended turn early`);
 					break;
+				}
+				else
+				{
+					Pop.Debug(`Player played card ${PlayedCard}`);
+				}
 			}
+			Pop.Debug(`Player finished turn`);
 			//	if player has too many cards, do a move to ditch N cards
 			
 			//	go to next player

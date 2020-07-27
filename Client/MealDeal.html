@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="win95.css" />
+<style>
+	/* disable scrolling on ios
+	 https://stackoverflow.com/a/57489918/355753
+	 */
+
+body
+{
+	background:		#fb2;
+}
+
+#DebugGui
+{
+	display:	none;
+}
+
+#MoveButtonContainer
+{
+	background:	#aaa;
+}
+
+#CurrentState
+{
+	background:	#aaf;
+}
+
+#LastAction
+{
+	background:	#ffa;
+}
+
+#Debug
+{
+	background:	#afa;
+}
+
+#Error
+{
+	background:	#faa;
+}
+
+#GameWindow
+{
+	display:	none;
+	opacity:	0.80;
+	position:	absolute;
+	left:		4vmin;
+	top:		4vmin;
+	right:		4vmin;
+	bottom:		4vmin;
+	xheight:		200px;
+	xwidth:		200px;
+}
+
+</style>
+</head>
+<body>
+	
+	
+	<div id="GameWindow"></div>
+	
+	<div id=DebugGui>
+		<div id=Error>
+			Error.
+		</div>
+		<div id=MoveButtonContainer>
+			Moves.
+		</div>
+		<div id=CurrentState>
+			State.
+		</div>
+		<div id=LastAction>
+			Last Action.
+		</div>
+		<div id=Debug>
+			Debug.
+		</div>
+	</div>
+
+	<script src='PopEngineCommon/PopWebApi.js'></script>
+	<script src='PopEngineCommon/PopApi.js'></script>
+	<script src='PopEngineCommon/PopWebOpenglApi.js'></script>
+	<script src='PopEngineCommon/PopWebGuiApi.js'></script>
+	<script src='PopEngineCommon/PopWebImageApi.js'></script>
+	<script src='PopEngineCommon/PopWebSocketApi.js'></script>
+	<script src='PopEngineCommon/PopWebXrApi.js'></script>
+
+	<!-- engine normally loads these in-code -->
+	<script src='PopEngineCommon/PopMath.js'></script>
+	<script src='PopEngineCommon/PopCamera.js'></script>
+	<script src='PopEngineCommon/PopShaderCache.js'></script>
+	<script src='PopEngineCommon/ParamsWindow.js'></script>
+	<script src='bootup.js'></script>
+	<script src='AssetManager.js'></script>
+	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
+	<script src='Games/MealDeal/MealDealClient.js'></script>
+
+	<script>
+		
+		/*
+		async function Bootup()
+		{
+			const AsyncAssetLoads = Pop.GetExeArguments().includes('AsyncAssets');
+						
+			const PreloadAssets =
+			[
+			 //'ConvertAssets.js',
+			 
+			 'Editor.js',
+			 
+				'bootup.js',
+				'Logo.js',
+				'Actors.js',
+				'AssetManager.js',
+				'AssetImport.js',
+			 'Hud.js',
+			 'ParticleActor.js',
+			 'AudioManager.js',
+
+			 'Timeline.js',
+			 'Animals.js',
+			 'PopEngineCommon/PopApi.js',
+			 'PopEngineCommon/PopShaderCache.js',
+			 'PopEngineCommon/PopFrameCounter.js',
+			 'PopEngineCommon/PopMath.js',
+			 'PopEngineCommon/ParamsWindow.js',
+			 'PopEngineCommon/PopTexture.js',
+			 
+			 'PopEngineCommon/PopCinema4d.js',
+			 'PopEngineCommon/PopCollada.js',
+			 'PopEngineCommon/PopPly.js',
+			 'PopEngineCommon/PopObj.js',
+			 'PopEngineCommon/PopSvg.js',
+
+			 'BlitCopy.frag.glsl',
+			 'PhysicsIteration_UpdateVelocity.frag.glsl',
+			 'PhysicsIteration_UpdatePosition.frag.glsl',
+			 'PhysicsIteration_UpdateVelocityPulse.frag.glsl',
+			 'ParticleTriangles.vert.glsl',
+			 'Quad.vert.glsl',
+			 //'Logo/Logo_PhysicsIteration_UpdateVelocity.frag.glsl',
+			 //'Logo/Logo_PhysicsIteration_UpdatePosition.frag.glsl',
+			// 'Logo/LogoParticle.frag.glsl',
+			 //'Logo/LogoParticle.vert.glsl',
+			 //'Logo/LogoSdf.frag.glsl',
+			 //'Logo/Logo.svg.json',
+			 
+			 'Animals.json'
+	 
+			];
+			
+			//	queue up dependencies for bootup
+			if ( AsyncAssetLoads )
+			{
+				//	trigger all then wait for them all to finish
+				const AssetPromises = [];
+				const Load = function(Filename)
+				{
+					const Promise = Pop.AsyncCacheAssetAsString(Filename);
+					AssetPromises.push( Promise );
+				}
+				PreloadAssets.forEach( Load );
+				await Promise.all( AssetPromises );
+			}
+			else
+			{
+				//	await one by one
+				for ( let i=0;	i<PreloadAssets.length;	i++ )
+				{
+					const Filename = PreloadAssets[i];
+					await Pop.AsyncCacheAssetAsString(Filename);
+				}
+			}
+			
+			//	these need to finish for bootup
+			let Source = await Pop.LoadFileAsStringAsync('bootup.js');
+			Pop.CompileAndRun( Source, 'bootup.js' );
+		}
+
+		Bootup().then( e=>Pop.Debug("Finished!",e) ).catch( console.error );
+	*/
+	</script>
+	
+</body>
+
