@@ -12,7 +12,11 @@ Pop.Include('Games/MealDeal.js');
 //Pop.Include('Games/PickANumber.js');
 
 
-const Window = new Pop.Gui.Window("Server");
+try {
+	const Window = new Pop.Gui.Window("Server");
+} catch (e) {
+	console.error(e)
+}
 
 function CreateRandomHash(Length=4)
 {

@@ -1,0 +1,35 @@
+name: Create Release
+
+env:
+  project: PopNotPoker
+
+on:
+  push:
+    branches:
+      - docker
+    #gr: testing, but cannot have path AND branch
+    #paths:
+    #- '**.json'
+    #tsdk: need this otherwise it will never make a package later on    
+    tags:        
+      - v*
+  watch:
+    types: [started]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Push to GitHub Packages
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: newchromantics/popnotpoker/popnotpoker-image
+          tag_with_ref: true

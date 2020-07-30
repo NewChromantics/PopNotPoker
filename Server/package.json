@@ -1,0 +1,25 @@
+{
+  "name": "@newchromantics/popnotpoker",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "version": "0.0.1",
+  "main": "index.js",
+  "dependencies": {
+    "@newchromantics/popengine": "0.0.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NewChromantics/PopNotPoker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NewChromantics/PopNotPoker/issues"
+  },
+  "homepage": "https://github.com/NewChromantics/PopNotPoker#readme"
+}
