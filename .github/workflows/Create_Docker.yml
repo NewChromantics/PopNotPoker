@@ -1,4 +1,4 @@
-name: Create Release
+name: Publish Server Image
 
 env:
   project: PopNotPoker
@@ -33,3 +33,4 @@ jobs:
           registry: docker.pkg.github.com
           repository: newchromantics/popnotpoker/popnotpoker-image
           tag_with_ref: true
+          dockerfile: Server/Dockerfile
