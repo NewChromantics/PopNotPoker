@@ -12,7 +12,7 @@ RUN apt update -qq && \
     apt install -qq -y npm libx264-dev libjavascriptcoregtk-4.0-dev gcc-10 g++-10
 
 # Node/npm packages
-COPY ./Server/package.json /home/app/package.json 
+COPY ./package.json /home/app/package.json 
 WORKDIR /home/app/
 
 RUN echo "//npm.pkg.github.com/:_authToken=db13663e713fb0ed4dc2041ea44904ae1b41d978" > .npmrc && \
