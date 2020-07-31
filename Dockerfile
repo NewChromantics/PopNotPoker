@@ -12,7 +12,7 @@ RUN apt update -qq && \
     apt install -qq -y npm libx264-dev libjavascriptcoregtk-4.0-dev gcc-10 g++-10
 
 COPY ./Server /home/app
-COPY ./node_modules /home/app
+COPY ./node_modules /home/app/node_modules
 
 WORKDIR /home/app/
 
