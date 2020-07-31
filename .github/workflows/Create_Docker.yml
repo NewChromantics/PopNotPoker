@@ -1,4 +1,4 @@
-name: Create Server Image
+name: Create Release
 
 on:
   push:
@@ -23,30 +23,15 @@ jobs:
 
       - name: Install Node Modules
         run: |
-          echo "${DOCKER_PASSWORD}" | docker login docker.pkg.github.com --username "${DOCKER_USERNAME}" --password-stdin
-      
-      - name: Make npmrc
-        run: |
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }}" > .npmrc
           echo @newchromantics:registry=https://npm.pkg.github.com >> .npmrc
+          npm install
 
-# tsdk: Can add other architectures later on: --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x \
-      - name: Docker Buildx (push)
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-          docker buildx build \
-          --secret id=npmrc,src=.npmrc \
-          --platform linux/amd64 \
-          --output "type=image,push=true" \
-          --tag docker.pkg.github.com/newchromantics/popnotpoker/server:latest \
-          .
-
-      - name: Docker Check Manifest
-        run: |
-          docker run --rm mplatform/mquery newchromantics/popnotpoker/server:latest
-      
-      - name: Clear
-        if: always()
-        run: |
-          rm -f ${HOME}/.docker/config.json
+      - name: Push to GitHub Packages
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: newchromantics/popnotpoker/server
+          tag_with_ref: true
