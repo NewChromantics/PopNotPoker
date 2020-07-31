@@ -51,7 +51,7 @@ jobs:
             --platform linux/amd64 \
             --output "type=image,push=true" \
             --tag newchromantics/popnotpoker:latest \
-            --file Dockerfile .
+            .
 
       - name: Docker Check Manifest
         run: |
