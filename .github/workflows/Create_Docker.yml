@@ -44,7 +44,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker buildx build --secret id=package_key,src=./.npmrc .
+          docker buildx build --secret id=npmrc,src=.npmrc .
 
       - name: Docker Check Manifest
         run: |
