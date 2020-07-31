@@ -1,5 +1,8 @@
 name: Create Release
 
+env:
+  NODE_AUTH_TOKEN: ${{ secrets.PACKAGE_KEY_ACTIONS }}
+
 on:
   push:
     branches:
@@ -24,7 +27,7 @@ jobs:
       - name: Install Github Packages
         run: npm i
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.PACKAGE_KEY_ACTIONS }}
+          NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
 
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v1
