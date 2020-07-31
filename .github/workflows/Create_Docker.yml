@@ -45,12 +45,12 @@ jobs:
       - name: Docker Buildx (push)
         env:
           DOCKER_BUILDKIT: 1
-        run: |
+        run: |/
           docker buildx build \
           --secret id=npmrc,src=.npmrc \
           --platform linux/amd64 \
           --output "type=image,push=true" \
-          --tag newchromantics/popnotpoker/server:latest \
+          --tag docker.pkg.github.com/newchromantics/popnotpoker/server:latest \
           .
 
       - name: Docker Check Manifest
