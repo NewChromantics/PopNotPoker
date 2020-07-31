@@ -1,0 +1,36 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - docker
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Configure Node
+        uses: actions/setup-node@v1
+        with:
+          registry-url: https://npm.pkg.github.com/
+          scope: '@newchromantics'
+          node-version: 12
+
+      - name: Install Github Packages
+        run: npm i
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGE_KEY_ACTIONS }}
+
+      - name: Push to GitHub Packages
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: newchromantics/popnotpoker/server
+          tag_with_ref: true
