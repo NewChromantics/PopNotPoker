@@ -45,7 +45,7 @@ jobs:
       - name: Docker Buildx (push)
         env:
           DOCKER_BUILDKIT: 1
-        run: |/
+        run: |
           docker buildx build \
           --secret id=npmrc,src=.npmrc \
           --platform linux/amd64 \
