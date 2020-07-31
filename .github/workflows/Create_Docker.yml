@@ -1,8 +1,7 @@
 name: Buildx
 
 env:
-  PACKAGE_KEY_ACTIONS: test1234
-#   PACKAGE_KEY_ACTIONS: ${{ secrets.PACKAGE_KEY_ACTIONS }}
+  PACKAGE_KEY_ACTIONS: ${{ secrets.PACKAGE_KEY_ACTIONS }}
 
 on:
   push:
