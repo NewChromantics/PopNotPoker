@@ -1,3 +1,5 @@
+# syntax = docker/dockerfile:1.0-experimental
+
 # This is the version needs to match what was used in the build in Github Workflows so the package versions match
 FROM ubuntu:18.04
 

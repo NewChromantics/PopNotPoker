@@ -46,12 +46,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker buildx build \
-            --secret id=package_key,src=${{ secrets.PACKAGE_KEY_ACTIONS }} \
-            --platform linux/amd64 \
-            --output "type=image,push=true" \
-            --tag newchromantics/popnotpoker:latest \
-            .
+          docker build --secret id=package_key,src=${{ secrets.PACKAGE_KEY_ACTIONS }} .
 
       - name: Docker Check Manifest
         run: |
