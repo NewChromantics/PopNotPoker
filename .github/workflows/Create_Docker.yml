@@ -17,9 +17,9 @@ jobs:
       - name: Configure Node
         uses: actions/setup-node@v1
         with:
-        registry-url: https://npm.pkg.github.com/
-        scope: '@newchromantics'
-        node-version: 12
+          registry-url: https://npm.pkg.github.com/
+          scope: '@newchromantics'
+          node-version: 12
     
       - name: Install Github Packages
         run: npm i
