@@ -1,7 +1,7 @@
 name: Buildx
 
 env:
-  npmrc: //npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }} \ @newchromantics:registry=https://npm.pkg.github.com
+  npmrc: "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }} \ @newchromantics:registry=https://npm.pkg.github.com"
 
 on:
   push:
