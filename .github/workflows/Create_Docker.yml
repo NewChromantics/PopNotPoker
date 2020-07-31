@@ -41,6 +41,7 @@ jobs:
         run: |
           echo "${DOCKER_PASSWORD}" | docker login docker.pkg.github.com --username "${DOCKER_USERNAME}" --password-stdin
 
+      - run: ls
 # tsdk: Can add other architectures later on: --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x \
       - name: Docker Buildx (push)
         env:
