@@ -1,5 +1,3 @@
-# syntax = docker/dockerfile:1.0-experimental
-
 # This is the version needs to match what was used in the build in Github Workflows so the package versions match
 FROM ubuntu:18.04
 
@@ -13,15 +11,11 @@ RUN apt update -qq && \
     add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
     apt install -qq -y npm libx264-dev libjavascriptcoregtk-4.0-dev gcc-10 g++-10
 
-# Node/npm packages
-COPY ./package.json /home/app/package.json 
+COPY ./Server /home/app
+COPY ./node_modules /home/app
+
 WORKDIR /home/app/
 
-RUN --mount=type=secret,id=npmrc,dst=/home/app/.npmrc \
-    npm install
-
 RUN chmod +x node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
-
-COPY ./Server /home/app
 
 CMD [ "node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp", "./" ] 

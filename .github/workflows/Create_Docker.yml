@@ -1,38 +1,27 @@
-name: Buildx
+name: Create Server Image
 
 on:
   push:
     branches:
       - docker
-    #gr: testing, but cannot have path AND branch
-    #paths:
-    #- '**.json'
-    #tsdk: need this otherwise it will never make a package later on    
-    tags:        
-      - v*
-  watch:
-    types: [started]
-    
+
 jobs:
-  buildx:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v2
         with:
           submodules: recursive
-        
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: crazy-max/ghaction-docker-buildx@v3
 
-      - name: Available platforms
-        run: echo ${{ steps.buildx.outputs.platforms }}
-              
-      - name: Docker Login
-        env:
-          DOCKER_USERNAME: ${{ github.actor }}
-          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      # setup node for npm packaging
+      - name: Make github package
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12
+          registry-url: https://npm.pkg.github.com/
+
+      - name: Install Node Modules
         run: |
           echo "${DOCKER_PASSWORD}" | docker login docker.pkg.github.com --username "${DOCKER_USERNAME}" --password-stdin
       
