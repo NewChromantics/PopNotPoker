@@ -1,5 +1,8 @@
 name: Buildx
 
+env:
+  PACKAGE_KEY_ACTIONS: ${{ secrets.PACKAGE_KEY_ACTIONS }}
+
 on:
   push:
     branches:
@@ -41,7 +44,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker buildx build --secret id=package_key,src=${{ secrets.PACKAGE_KEY_ACTIONS }} .
+          docker buildx build --secret id=package_key,src=.npmrc .
 
       - name: Docker Check Manifest
         run: |
