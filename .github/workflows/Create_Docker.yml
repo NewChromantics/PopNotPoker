@@ -44,7 +44,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker build --secret id=package_key,src=${{ secrets.PACKAGE_KEY_ACTIONS }} .
+          docker build --secret id=package_key,src=${{ env.npmrc }} .
 
       - name: Docker Check Manifest
         run: |
