@@ -1,8 +1,5 @@
 name: Buildx
 
-env:
-  npmrc: "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }} \ @newchromantics:registry=https://npm.pkg.github.com"
-
 on:
   push:
     branches:
@@ -44,7 +41,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker buildx build --secret id=package_key,src=${{ env.npmrc }} .
+          docker buildx build --secret id=package_key,src=${{ secrets.PACKAGE_KEY_ACTIONS }} .
 
       - name: Docker Check Manifest
         run: |
