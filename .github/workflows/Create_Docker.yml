@@ -46,12 +46,16 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          ls
-          docker buildx build --secret id=npmrc,src=.npmrc .
+          docker buildx build \
+          --secret id=npmrc,src=.npmrc \
+          --platform linux/amd64 \
+          --output "type=image,push=true" \
+          --tag newchromantics/popnotpoker/server:latest \
+          .
 
       - name: Docker Check Manifest
         run: |
-          docker run --rm mplatform/mquery newchromantics/popnotpoker:latest 
+          docker run --rm mplatform/mquery newchromantics/popnotpoker/server:latest
       
       - name: Clear
         if: always()
