@@ -38,14 +38,15 @@ jobs:
       
       - name: Make npmrc
         run: |
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }}" > ~/.npmrc
-          echo @newchromantics:registry=https://npm.pkg.github.com >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }}" > .npmrc
+          echo @newchromantics:registry=https://npm.pkg.github.com >> .npmrc
 
 # tsdk: Can add other architectures later on: --platform linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x \
       - name: Docker Buildx (push)
         env:
           DOCKER_BUILDKIT: 1
         run: |
+          ls
           docker buildx build --secret id=npmrc,src=.npmrc .
 
       - name: Docker Check Manifest
