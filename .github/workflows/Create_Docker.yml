@@ -14,18 +14,17 @@ jobs:
         with:
           submodules: recursive
 
-      # setup node for npm packaging
-      - name: Make github package
+      - name: Configure Node
         uses: actions/setup-node@v1
         with:
-          node-version: 12
-          registry-url: https://npm.pkg.github.com/
-
-      - name: Install Node Modules
-        run: |
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.PACKAGE_KEY_ACTIONS }}" > .npmrc
-          echo @newchromantics:registry=https://npm.pkg.github.com >> .npmrc
-          npm install
+        registry-url: https://npm.pkg.github.com/
+        scope: '@newchromantics'
+        node-version: 12
+    
+      - name: Install Github Packages
+        run: npm i
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGE_KEY_ACTIONS }}
 
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v1
