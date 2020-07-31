@@ -15,8 +15,7 @@ RUN apt update -qq && \
 COPY ./package.json /home/app/package.json 
 WORKDIR /home/app/
 
-RUN echo "//npm.pkg.github.com/:_authToken=db13663e713fb0ed4dc2041ea44904ae1b41d978" > .npmrc && \
-    echo '@newchromantics:registry=https://npm.pkg.github.com' >> .npmrc && \
+RUN --mount=type=secret,id=npmrc,dst=/home/app/.npmrc \
     npm install
 
 RUN chmod +x node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
