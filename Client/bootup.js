@@ -229,8 +229,8 @@ function GetNextAddress()
 	const Addresses = [];
 
 	//	default combinations
-	let HostNames = ['FoxDrop.NewChromantics.com','localhost'];
-	let Ports = [10001,10002,10003,10001];
+	let HostNames = ['sloppy.not.poker','FoxDrop.NewChromantics.com','localhost'];
+	let Ports = [80,10001,10002,10003,10001];
 
 	//	let user insert hostname/port
 	if (Pop.GetExeArguments().Hostname)
