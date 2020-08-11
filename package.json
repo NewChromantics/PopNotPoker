@@ -3,10 +3,10 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "index.js",
   "dependencies": {
-    "@newchromantics/popengine": "0.0.2"
+    "@newchromantics/popengine": "latest"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
