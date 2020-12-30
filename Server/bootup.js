@@ -1,4 +1,4 @@
-Pop.Debug("PopNotPoker server booting up");
+Pop.Debug("PopNotPoker room booting up");
 
 Pop.Include = function(Filename)
 {
@@ -640,7 +640,7 @@ class LobbyWebSocketServer
 }
 
 {
-	const Ports = [10001,10002,10003];
+	const Ports = [10001];
 	const Room = new LobbyWebSocketServer(Ports);
 	RunGameLoop(Room).catch(Pop.Debug);
 }
