@@ -195,7 +195,7 @@ Pop.PromiseQueue = class
 
 //	urls should be /ABCD
 const RoomUrlPattern = `^/([A-Z]{4})$`;
-const RoomSpawnDelayMs = 1000;
+const RoomSpawnDelayMs = 2*1000;
 
 const MacPopExe = '/Volumes/Code/PopEngine/build/Debug_JavascriptCore/PopEngine.app/Contents/MacOS/PopEngine';
 
@@ -343,6 +343,8 @@ async function SpawnNewRoom()
 	
 	if ( UseThread )
 	{
+		//	pause for dos, but lots of requests will still overwhelm
+		await Pop.Yield(RoomSpawnDelayMs);
 		const Request = Pop.CreatePromise();
 		Pop.Debug(`pushing request`);
 		RoomSpawnRequestQueue.Push(Request);
