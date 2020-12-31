@@ -12,7 +12,8 @@
 const Pop = {};
 Pop.Debug = console.log;
 
-
+const PopExe = '/home/app/node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp';
+const PopAppPath = '/home/app';
 
 //	returns meta
 async function StartRoomProcess()
@@ -22,7 +23,7 @@ async function StartRoomProcess()
 
 	//	
 	const RoomProcess = spawn( PopExe, [
-		RaymonBootPath,
+		PopAppPath,
 		`RayDataFilename=${RayDataFilename}`,
 		`ObjFilename=${SceneObjFilename}`,
 		`ZipSaveLocation=${ZipSaveLocation}`,
