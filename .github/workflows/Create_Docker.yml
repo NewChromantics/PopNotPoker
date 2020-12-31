@@ -2,8 +2,8 @@ name: Create Release
 
 on:
   push:
-    branches:
-      - master
+    tags:        
+      - v*
 
 jobs:
   publish:
@@ -32,5 +32,5 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
-          repository: newchromantics/popnotpoker/server
+          repository: newchromantics/popnotpoker/popnotpoker
           tag_with_ref: true
