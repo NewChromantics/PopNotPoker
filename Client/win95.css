@@ -4,10 +4,19 @@
 	src: url("MsSansSerif.ttf") ;/*format("opentype");*/
 }
 
+:root
+{
+	--win32_Highlight:	#fff;
+	--win32_Medlight:	#ccc;
+	--win32_Background:	#b8b8b8;
+	--win32_LoLight:	#888;
+	--win32_DarkLight:	#000;
+}
+
 /* this was global/desktop styling, but can just apply to window */
 .PopGuiWindow
 {
-	color:				#000;	/* text colour */
+	color:			var(--win32_DarkLight);	/* text colour */
 
 	/* current closest I can get to original */
 	font-family:	MsSansSerif, courier;
@@ -23,19 +32,31 @@
 	padding:		0px;
 }
 
+
+/* default edges */
+.PopGuiWindow,
+.PopGuiIconView, 
+.PopGuiWindow * input 
+{
+	/* colour from topleft to bottom right */
+	--ColourA:	var(--win32_Highlight);
+	--ColourB:	var(--win32_Medlight);
+	--ColourBg:	var(--win32_Background);
+	--ColourC:	var(--win32_LoLight);
+	--ColourD:	var(--win32_DarkLight);
+
+	border-top:		1px var(--ColourB) solid !important;
+	border-left:	1px var(--ColourB) solid !important;
+	border-bottom:	1px var(--ColourD) solid !important;
+	border-right:	1px var(--ColourD) solid !important;
+	/* x offset, y offset, blur radius, spread radius, colour */
+	box-shadow:		inset 1px 1px 0px 0px var(--ColourA), inset -1px -1px 0px 0px var(--ColourC) !important;
+	background:		var(--ColourBg);
+}
+
 .PopGuiWindow
 {
-	/* 2 borders on a window! */
-	border-top:		1px #ccc solid;
-	border-left:	1px #ccc solid;
-	border-bottom:	1px #000 solid;
-	border-right:	1px #000 solid;
-	/* x offset, y offset, blur radius, spread radius, colour */
-	box-shadow:		inset 1px 1px 0px 0px #fff, inset -1px -1px 0px 0px #888;
-	
 	padding:		3px;	/* this gets ignored if child is positioned with absolute, so add margin */
-	
-	background:		#ccc;
 	
 	xposition:	absolute;
 	position:	relative;
@@ -44,27 +65,33 @@
 }
 
 
-.PopGuiIconView
+/* embossed controls */
+.PopGuiIconView, 
+.PopGuiWindow * input[type=text],
+.PopGuiTitleBar .PopGuiButton,
+.PopGuiWindow * input[type=button],
+.PopGuiWindow * input[type=checkbox],
+.PopGuiWindow * input[type=range]
 {
-	/* embossed border */
-	/* 2 borders on a window! */
-	border-bottom:	1px #fff solid;
-	border-right:	1px #fff solid;
-	border-top:		1px #888 solid;
-	border-left:	1px #888 solid;
-	/* x offset, y offset, blur radius, spread radius, colour */
-	box-shadow:		inset -1px -1px 0px 0px #ccc, inset 1px 1px 0px 0px #000;
-	
-	display:	flex;
-	flex-wrap:	wrap;
+	--ColourA:	var(--win32_DarkLight);
+	--ColourB:	var(--win32_LoLight);
+	--ColourBg:	#fff;
+	--ColourC:	var(--win32_Medlight);
+	--ColourD:	var(--win32_Highlight);
 
 	/* as we're absolute, the padding from above needs to be put as margin */
-	margin:		3px;
-	
+	margin: 3px;
+	padding: 1px; /* border is inside the margins so we need to pad otherwise stuff inside overlaps border */
+	border-radius: 0px;	/* remove rounded edges from checkboxes */
+}
+
+.PopGuiIconView
+{
+	display:	flex;
+	flex-wrap:	wrap;
+		
 	/* title bar offset as we're absolute :/ would be good to take away need for absolute	*/
 	top:		20px !important;	/* important to override the .style set in code */
-	
-	background:		#fff;
 }
 
 .PopGuiIconView#Desktop
@@ -118,14 +145,6 @@
 
 .PopGuiTitleBar .PopGuiButton
 {
-	background:		#ccc;
-	border-top:		1px #fff solid;
-	border-left:	1px #fff solid;
-	border-bottom:	1px #000 solid;
-	border-right:	1px #000 solid;
-	/* x offset, y offset, blur radius, spread radius, colour */
-	box-shadow:		inset -1px -1px 0px 0px #888, inset 1px 1px 0px 0px #ccc;
-	
 	color:			#000;
 	width:			10px;
 	height:			10px;
@@ -211,4 +230,76 @@
 {
 	background-color:	#00C;
 	color:				#fff;
+}
+
+
+
+.PopGuiWindow * table
+{
+	border-collapse: collapse;
+}
+
+.PopGuiWindow * thead 
+{
+	background: #ccc;
+	font-weight:bold;
+}
+
+.PopGuiWindow * tr 
+{
+}
+
+.PopGuiWindow * td 
+{
+	padding: 4px;
+	border: 1px #ccc solid;
+	white-space: nowrap;
+}
+
+.PopGuiWindow * input[type=text]
+{
+	/* current closest I can get to original */
+	font-family: MsSansSerif, courier;
+	font-smooth: never;
+	-webkit-font-smoothing: none;
+	font-size: 11px;
+	padding: 7px;
+	margin: 0px;
+	outline: none;	/* outline on-focus */
+}
+
+.PopGuiWindow * input[type=button] 
+{
+	/* colours from top left to bottom right */
+	--ColourA:	#fff;
+	--ColourB:	#ccc;
+	--ColourBg:	#B8B8B8;
+	--ColourC:	#888;
+	--ColourD:	#000;
+
+	/* as we're absolute, the padding from above needs to be put as margin */
+	margin: 3px;
+	padding: 1px; /* border is inside the margins so we need to pad otherwise stuff inside overlaps border */
+
+	/* current closest I can get to original */
+	font-family: MsSansSerif, courier;
+	font-smooth: never;
+	-webkit-font-smoothing: none;
+	font-size: 11px;
+	padding: 7px;
+	margin: 0px;
+	outline: none;	/* outline on-focus */
+}
+
+.PopGuiWindow * input[type=button]:focus
+{
+	/* dashed outline text */ 
+}
+
+.PopGuiWindow * input[type=button]:active
+{
+	--ColourA:	var(--win32_DarkLight);
+	--ColourB:	var(--win32_LoLight);
+	--ColourC:	var(--win32_Medlight);
+	--ColourD:	var(--win32_Highlight);
 }
