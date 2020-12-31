@@ -94,7 +94,6 @@ async function RunGameRoomLoop(Room)
 			const PlayersChangedPromise = Room.WaitForPlayerJoinRequest();
 			const Events = [GameEndPromise,PlayersChangedPromise];
 			
-			Pop.Debug(`await Promise.race = ${Promise.race}`);
 			EndOfGameWinners = await Promise.race(Events);
 			Pop.Debug(`GameEnd/PlayersChanged race=${EndOfGameWinners}`);
 
@@ -108,6 +107,10 @@ async function RunGameRoomLoop(Room)
 				break;
 			}
 		}
+		
+		//	game exited with no winner (ie, game aborted)
+		if ( !EndOfGameWinners )
+			EndOfGameWinners = [];
 		
 		Room.SendToAllPlayers('EndOfGame',EndOfGameWinners);
 		
