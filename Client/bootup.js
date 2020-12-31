@@ -223,6 +223,11 @@ async function ConnectToServerLoop(GetAddress,OnMessage)
 	}
 }
 
+//	gr: is this the best way to get room in?
+const RoomName = Pop.GetExeArguments().Room;
+if ( !RoomName )
+	throw `Room is not defined`;
+
 let ConnectTry = null;
 function GetNextAddress()
 {
@@ -243,7 +248,10 @@ function GetNextAddress()
 			Addresses.push([Hostname,Port]);
 
 	ConnectTry = (ConnectTry === null) ? 0 : ConnectTry + 1;
-	return Addresses[ConnectTry%Addresses.length];
+	
+	let Address = Addresses[ConnectTry%Addresses.length].slice();
+	Address.push( RoomName );
+	return Address;
 }
 
 ConnectToServerLoop(GetNextAddress,OnMessage).catch(Pop.Debug);
