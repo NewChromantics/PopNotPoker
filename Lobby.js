@@ -26,6 +26,8 @@ Pop.CreatePromise = function()
 	return Prom;
 }
 
+//	urls should be /ABCD
+const RoomUrlPattern = `^/([A-Z]{4})$`;
 
 const MacPopExe = '/Volumes/Code/PopEngine/build/Debug_JavascriptCore/PopEngine.app/Contents/MacOS/PopEngine';
 const MacRoomAppPath = './Server';
@@ -146,22 +148,48 @@ function OnHttpRequest(Request,Result)
 	Proxy.web(Request, Result, { target: TargetUrl });	
 }
 
+
 function OnUpgradeRequest(req, socket, head)
 {
 	function Event(e)
 	{
 		console.log(`websocket Event ${e}`);
 	}
-	const FirstRoom = GetRoom('ABCD');
 	
-	if ( !FirstRoom.Port )
-		throw `Room has not finished booting (no port)`;
-	
-	const TargetUrl = `ws://localhost:${FirstRoom.Port}`;
-	//Pop.Debug(`request ${req} ${JSON.stringify(req)} TargetUrl=${TargetUrl}`);
-	//const NewProxyMeta = {target: TargetUrl, changeOrigin: true, ws: true}; 
-	const NewProxyMeta = {target: TargetUrl, ws: true}; 
-	Proxy.ws(req, socket, head, NewProxyMeta, Event );
+	try
+	{
+		//	expect user to try and connect to websocket/ROOM
+		const RoomMatch = req.url.match(RoomUrlPattern);
+		if ( !RoomMatch )
+			throw `Request has no matching room url ${req.url}`;
+		
+		const RoomName = RoomMatch[1];
+		//Pop.Debug(`RoomMatch = ${JSON.stringify(RoomMatch)}`);
+		const FirstRoom = GetRoom(RoomName);
+		
+		if ( !FirstRoom )
+			throw `No such room ${RoomName}`;
+		if ( !FirstRoom.Port )
+			throw `Room has not finished booting (no port)`;
+		
+		const TargetUrl = `ws://localhost:${FirstRoom.Port}`;
+		//Pop.Debug(`request ${req.url} -> ${JSON.stringify(req)} TargetUrl=${TargetUrl}`);
+		//	gr: don't know if we need change origin, don't seem to locally
+		//const NewProxyMeta = {target: TargetUrl, changeOrigin: true, ws: true}; 
+		const NewProxyMeta = {target: TargetUrl, ws: true}; 
+		Proxy.ws(req, socket, head, NewProxyMeta, Event );
+	}
+	catch(e)
+	{
+		Pop.Debug(`HTTP->Websocket upgrade rejected; ${e}`);
+		//	gr: no response object, so have to write directly to socket
+		let Response = `HTTP/1.1 500\r\n`;
+		Response += `\r\n`;
+		Response += `Error: ${e}`;
+		socket.write(Response);
+		//socket.close();
+		socket.destroy();
+	}
 }
 
 const HttpServer = http.createServer(OnHttpRequest);
