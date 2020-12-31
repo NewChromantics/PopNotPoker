@@ -104,7 +104,7 @@ float2 GetFontUv(int Number,float2 LocalUv)
 #define Black		float3(Blackf,Blackf,Blackf)
 
 
-float3 GetNumberColour(int Number,bool Hidden,float2 LocalUv)
+float3 GetTileColour(int Number,bool Hidden,float2 LocalUv)
 {
 	//	highlight/lowlight
 	float3 HighOut = !Hidden ? Black : White;
@@ -140,11 +140,11 @@ float3 GetNumberColour(int Number,bool Hidden,float2 LocalUv)
 	if ( LocalUv.x > 1.0 || LocalUv.y > 1.0 )
 		return Inside;
 
-	if ( Number == 0 || Hidden )
+	if ( (Number == 0) || Hidden )
 	{
 		return Inside;
 	}
-
+	
 	if ( Number == MINE_NUMBER )
 		Number = 10;
 	
@@ -157,6 +157,7 @@ float3 GetNumberColour(int Number,bool Hidden,float2 LocalUv)
 const bool Debug_Font = false;
 const bool Debug_FontTexture = false;
 const bool Debug_Data = false;
+const bool Debug_Hidden = false;
 
 void main()
 {
@@ -164,6 +165,14 @@ void main()
 	bool IsMine;
 	bool IsHidden;
 	GetGridValue( NeighbourCount, IsMine, IsHidden );
+
+	if ( IsHidden && Debug_Hidden )
+	{
+		float2 xy = uv * GridSize;
+		float2 LocalUv = fract( xy );
+		gl_FragColor = float4(LocalUv,1.0,1.0);
+		return;
+	}		
 
 	if ( Debug_Font )
 	{
@@ -173,8 +182,8 @@ void main()
 		x += y*int(GridSize.x);
 		float2 LocalUv = fract( xy );
 		gl_FragColor = float4(LocalUv,0.0,1.0);
-		gl_FragColor.xyz = GetNumberColour(x,false,LocalUv);
-		//gl_FragColor.xyz = GetNumberColour(IsHidden?4:1,false,LocalUv);
+		gl_FragColor.xyz = GetTileColour(x,false,LocalUv);
+		//gl_FragColor.xyz = GetTileColour(IsHidden?4:1,false,LocalUv);
 		return;
 	}
 	
@@ -223,7 +232,7 @@ void main()
 	float2 LocalUv = fract( xy );
 
 	gl_FragColor = float4(LocalUv,0.0,1.0);
-	gl_FragColor.xyz = GetNumberColour(NeighbourCount,IsHidden,LocalUv);
+	gl_FragColor.xyz = GetTileColour(NeighbourCount,IsHidden,LocalUv);
 	gl_FragColor.w = 1.0;
 	/*
 	float4 Sample = texture2D( Texture, uv );
