@@ -65,7 +65,7 @@ async function StartRoomProcess()
 		const PortMatch = data.match(ListeningPortPattern);
 		if ( PortMatch )
 		{
-			Pop.Debug(JSON.stringify(PortMatch));
+			//Pop.Debug(JSON.stringify(PortMatch));
 			const Port = parseInt(PortMatch[1]);
 			Pop.Debug(`Detected listening port: ${Port}`);
 			ListeningPortPromise.Resolve(Port);
@@ -74,7 +74,9 @@ async function StartRoomProcess()
 
 	RoomProcess.stderr.on( 'data', ( data ) =>
 	{
-		console.log( `stderr: ${data}` );
+		data = `${data}`;
+		const DataClean = data.replace('\n','\\n');
+		console.log( `stderr: ${DataClean}` );
 	} );
 
 	RoomProcess.on( 'error', ( error ) =>
@@ -148,7 +150,7 @@ function OnUpgradeRequest(req, socket, head)
 {
 	function Event(e)
 	{
-		console.log(e)
+		console.log(`websocket Event ${e}`);
 	}
 	const FirstRoom = GetRoom('ABCD');
 	
@@ -156,8 +158,9 @@ function OnUpgradeRequest(req, socket, head)
 		throw `Room has not finished booting (no port)`;
 	
 	const TargetUrl = `ws://localhost:${FirstRoom.Port}`;
-	Pop.Debug(`request ${req} ${JSON.stringify(req)} TargetUrl=${TargetUrl}`);
-	const NewProxyMeta = {target: TargetUrl, changeOrigin: true, ws: true}; 
+	//Pop.Debug(`request ${req} ${JSON.stringify(req)} TargetUrl=${TargetUrl}`);
+	//const NewProxyMeta = {target: TargetUrl, changeOrigin: true, ws: true}; 
+	const NewProxyMeta = {target: TargetUrl, ws: true}; 
 	Proxy.ws(req, socket, head, NewProxyMeta, Event );
 }
 

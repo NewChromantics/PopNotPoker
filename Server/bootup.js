@@ -33,7 +33,7 @@ function CreateRandomHash(Length=4)
 }
 
 
-async function RunGameLoop(Room)
+async function RunGameRoomLoop(Room)
 {
 	while(true)
 	{
@@ -70,12 +70,15 @@ async function RunGameLoop(Room)
 		//	so every game starts with enough players and doesnt need extra code
 		while ( !Game.HasEnoughPlayers() )
 		{
+			Pop.Debug(`Game waiting for players. WaitForPlayerJoinRequest`);
 			await Room.WaitForPlayerJoinRequest();
 		
 			//	do the synchronous player update
 			Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
 			OnStateChanged();
 		}
+		
+		Pop.Debug(`Starting game ${Game.Players}`);
 		
 		//	run the async game
 		const GameEndPromise = Game.RunGame( SendMoveAndWait, OnStateChanged, OnAction );
@@ -100,6 +103,10 @@ async function RunGameLoop(Room)
 			Room.EnumNewPlayers( Game.AddPlayer.bind(Game), Game.DeletePlayer.bind(Game) );
 			
 			//	if not enough players, forfeit game, or pause?
+			if ( !Game.HasEnoughPlayers() )
+			{
+				break;
+			}
 		}
 		
 		Room.SendToAllPlayers('EndOfGame',EndOfGameWinners);
@@ -107,7 +114,14 @@ async function RunGameLoop(Room)
 		//	report generic win
 		Room.IncreasePlayerWins(EndOfGameWinners);
 		
-		//	game exit!
+		//	game exit! 
+		//	let room loop around so same players can start a new game
+		//	if everyone has quit, then exit (and exit process)
+		if ( Game.Players.length == 0 )
+		{
+			Pop.Debug(`All players left. Exiting`);
+			return;
+		}
 	}
 }
 
@@ -252,6 +266,7 @@ class LobbyWebSocketServer
 				//	we should also seperate players from rooms
 				while(Socket)
 				{
+					Pop.Debug(`Socket waiting for next message`);
 					const Packet = await Socket.WaitForMessage();
 					//	handle join request
 					try
@@ -280,6 +295,7 @@ class LobbyWebSocketServer
 	{
 		//	currently assuming always json
 		const Packet = JSON.parse(Data);
+		Pop.Debug(`OnPacket ${Peer};${Data}`);
 		
 		if ( !Packet.Command )
 			throw `Packet has no command`;
@@ -380,6 +396,10 @@ class LobbyWebSocketServer
 	
 		//	todo: send disconnect notify packet
 		this.OnPlayersChanged();
+		
+		//	wake up anything that's waiting for new players (todo: rename this to "players-change request"
+		Pop.Debug(`Disconnect peer wake up`);
+		this.PlayerJoinRequestPromiseQueue.Push();
 		
 		//	make sure its disconnected
 		//this.CurrentSocket.Disconnect(Peer);
@@ -504,6 +524,7 @@ class LobbyWebSocketServer
 		}
 		
 		//	the function inside moves from the waiting list, so make a copy to iterate
+		Pop.Debug(`EnumNewPlayers waiting=${this.WaitingPlayers.length} deleting=${this.DeletingPlayers.length}`);
 		const WaitingPlayers = this.WaitingPlayers.slice();
 		WaitingPlayers.forEach(TryJoin.bind(this));
 		
@@ -647,9 +668,21 @@ class LobbyWebSocketServer
 	}
 }
 
+
+async function RunGameLoop()
 {
 	const Ports = [0];
 	const Room = new LobbyWebSocketServer(Ports);
-	RunGameLoop(Room).catch(Pop.Debug);
+	try
+	{
+		await RunGameRoomLoop(Room);
+		Pop.ExitApplication(0);		
+	}
+	catch(e)
+	{
+		Pop.Debug(`Error in RunGameLoop; ${e}`);
+		Pop.ExitApplication(1);
+	}
 }
+RunGameLoop();
 

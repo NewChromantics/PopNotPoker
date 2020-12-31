@@ -346,7 +346,7 @@ class TMinesweeperGame extends TGame
 	{
 		while ( !this.GetWinner() )
 		{
-			Pop.Debug(`Iteration`);
+			await Pop.Yield(0);	//	gr: we should force this with GetCurrentPlayer or GetWinner. We need this gap to allow player changes externally
 			OnStateChanged();
 			const Player = this.GetCurrentPlayer();
 			
