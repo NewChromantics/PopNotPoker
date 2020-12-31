@@ -21,17 +21,17 @@ RUN apt update -qq && \
         libglfw3-dev
 
 
-COPY ./Server /home/app
-COPY ./Lobby /home/lobby
-COPY ./node_modules /home/app/node_modules
-COPY . /home
+COPY ./Server	/home/Server
+COPY ./Lobby	/home/Lobby
+COPY ./Client	/home/Client
+COPY ./node_modules	/home/node_modules
+COPY ./	/home
 
-WORKDIR /home/app/
+WORKDIR /home/
 
 RUN chmod +x node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
 
-ENV PopExe=/home/app/node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
-ENV RoomAppPath=/home/app
+ENV PopExe=/home/node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
 
-CMD [ "node", "/home/Lobby.js" ] 
+CMD [ "node", "./Lobby.js" ] 
 #CMD [ "node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp", "./" ] 

@@ -30,11 +30,11 @@ Pop.CreatePromise = function()
 const RoomUrlPattern = `^/([A-Z]{4})$`;
 
 const MacPopExe = '/Volumes/Code/PopEngine/build/Debug_JavascriptCore/PopEngine.app/Contents/MacOS/PopEngine';
-const MacRoomAppPath = './Server';
 
 //	fallback to mac local test settings 
 //	if paths not provided by env vars (expect these to be set in dockerfile)
-const RoomAppPath = process.env.RoomAppPath || MacRoomAppPath;
+const RoomAppPath = process.env.RoomAppPath || './Server';
+const ClientPath = process.env.RoomAppPath || './Client';
 const PopExe = process.env.PopExe || MacPopExe;
 
 
@@ -199,7 +199,7 @@ HttpServer.listen(8000);
 
 // ...and a simple http server to show us our request back.
 const static = require('node-static');
-const FileServer = new(static.Server)('./Client/');
+const FileServer = new(static.Server)(ClientPath);
 function OnStaticRequest(req,res)
 {
 	FileServer.serve(req, res);
