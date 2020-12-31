@@ -140,7 +140,11 @@ float3 GetTileColour(int Number,bool Hidden,float2 LocalUv)
 	if ( LocalUv.x > 1.0 || LocalUv.y > 1.0 )
 		return Inside;
 
-	if ( (Number == 0) || Hidden )
+	if ( Number == 0 )
+	{
+		return Inside;
+	}
+	if ( Hidden )
 	{
 		return Inside;
 	}
