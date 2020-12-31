@@ -151,6 +151,10 @@ function OnUpgradeRequest(req, socket, head)
 		console.log(e)
 	}
 	const FirstRoom = GetRoom('ABCD');
+	
+	if ( !FirstRoom.Port )
+		throw `Room has not finished booting (no port)`;
+	
 	const TargetUrl = `ws://localhost:${FirstRoom.Port}`;
 	Pop.Debug(`request ${req} ${JSON.stringify(req)} TargetUrl=${TargetUrl}`);
 	const NewProxyMeta = {target: TargetUrl, changeOrigin: true, ws: true}; 
