@@ -12,10 +12,16 @@ RUN apt update -qq && \
     apt install -qq -y npm libx264-dev libjavascriptcoregtk-4.0-dev gcc-10 g++-10
 
 COPY ./Server /home/app
+COPY ./Lobby /home/lobby
 COPY ./node_modules /home/app/node_modules
+COPY . /home
 
 WORKDIR /home/app/
 
 RUN chmod +x node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
 
-CMD [ "node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp", "./" ] 
+ENV PopExe=/home/app/node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp
+ENV RoomAppPath=/home/app
+
+CMD [ "node", "/home/Lobby.js" ] 
+#CMD [ "node_modules/@newchromantics/popengine/ubuntu-latest/PopEngineTestApp", "./" ] 
