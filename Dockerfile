@@ -22,7 +22,6 @@ RUN apt update -qq && \
 
 
 COPY ./Server	/home/Server
-COPY ./Lobby	/home/Lobby
 COPY ./Client	/home/Client
 COPY ./node_modules	/home/node_modules
 COPY ./	/home
