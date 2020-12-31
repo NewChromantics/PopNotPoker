@@ -41,8 +41,9 @@ async function RunGameRoomLoop(Room)
 
 		//const Game = new TMealDealGame();
 		const Game = new TMinesweeperGame();
-		//	for players still in room from a previous game
-		//await Room.EnumNewGamePlayers( Game.AddPlayer.bind(Game) );
+		//	for players still in room from a previous game, turn them back into waiting
+		//	players so they go through the same joining routine
+		Room.DeactivatePlayers();
 		
 		
 		//	gr: this func could call the lambda and retry automatically
@@ -104,10 +105,13 @@ async function RunGameRoomLoop(Room)
 			//	if not enough players, forfeit game, or pause?
 			if ( !Game.HasEnoughPlayers() )
 			{
+				Pop.Debug(`Game doesn't have enough players, breaking game loop`);
 				break;
 			}
 		}
 		
+		Pop.Debug(`Game finished; EndOfGameWinners=${EndOfGameWinners}`);
+
 		//	game exited with no winner (ie, game aborted)
 		if ( !EndOfGameWinners )
 			EndOfGameWinners = [];
@@ -120,11 +124,13 @@ async function RunGameRoomLoop(Room)
 		//	game exit! 
 		//	let room loop around so same players can start a new game
 		//	if everyone has quit, then exit (and exit process)
+		/*
 		if ( Game.Players.length == 0 )
 		{
 			Pop.Debug(`All players left. Exiting`);
 			return;
 		}
+		*/
 	}
 }
 
@@ -474,33 +480,16 @@ class LobbyWebSocketServer
 		this.PlayerJoinRequestPromiseQueue.Push();
 	}
 	
-	async EnumNewGamePlayers(AddPlayer)
+	DeactivatePlayers()
 	{
-		const RejectedPlayers = [];
+		const PoppedPlayers = this.ActivePlayers.splice( 0, this.ActivePlayers.length );
+		//	put previously active players to the FRONT of the queue
+		this.WaitingPlayers.splice( 0, 0, ...PoppedPlayers );
+
+		Pop.Debug(`Cut ${PoppedPlayers.length} active players and added to waiting list (${this.WaitingPlayers.length})`);
 		
-		function TryJoin(Player)
-		{
-			try
-			{
-				Pop.Debug(`Adding new player ${Player.Hash}`);
-				const NewPlayerMeta = AddPlayer(Player.Hash);
-				Player.GamePlayerMeta = NewPlayerMeta;
-				//	move player from waiting to player list
-				//this.MovePlayerFromWaitingToActive(Player);
-				//Player.OnJoinPromise.Resolve(NewPlayerMeta);
-			}
-			catch(e)
-			{
-				Pop.Debug(`Existing player in new game rejected ${Player.Hash} ${e}`);
-				const Rejection = {};
-				Rejection.Exception = e;
-				Rejection.Player = Player;
-				RejectedPlayers.push(Rejection);
-			}
-		}
-		this.ActivePlayers.forEach(TryJoin.bind(this));
-		
-		RejectedPlayers.forEach( r => this.DisconnectPeer(r.Player.Peer,r.Exception) );
+		//	notify changes
+		this.PlayerJoinRequestPromiseQueue.Push();
 	}
 	
 	async EnumNewPlayers(AddPlayer,DeletePlayer)
