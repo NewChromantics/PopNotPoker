@@ -229,6 +229,14 @@ class LobbyWebSocketServer
 				let Socket = new Pop.Websocket.Server(Port);
 				this.CurrentSocket = Socket;
 				
+				//	get & report the port we're actually listening on
+				{
+					const Address0 = Socket.GetAddress()[0].Address;
+					const AddressAndPort = Address0.split(':');					
+					const ListeningPort = AddressAndPort[1];
+					Pop.StdOut(`Listening on ${ListeningPort}`);
+				}
+				
 				//	regularly send a ping to catch if a peer has disconnected (todo: use websocket ping!)
 				async function PingLoop()
 				{
@@ -640,7 +648,7 @@ class LobbyWebSocketServer
 }
 
 {
-	const Ports = [10001];
+	const Ports = [0];
 	const Room = new LobbyWebSocketServer(Ports);
 	RunGameLoop(Room).catch(Pop.Debug);
 }
