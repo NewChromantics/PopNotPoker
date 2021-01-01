@@ -60,43 +60,59 @@ body
 	height:	100%;
 }
 
+#JoinWindow
+{
+	width:	70vmin;
+	height: 20vmax;
+	max-height:20vmin;
+	z-index: 99;
+	position:	relative;
+	margin-bottom:	10vmin;
+}
+
+#CreateRoomWindow
+{
+	width:	70vmin;
+	height: 20vmax;
+	max-height:20vmin;
+	z-index: 99;
+	position:	relative;
+}
+
+#JoinRoomName
+{
+	text-transform:	uppercase;
+}
+	
 </style>
 </head>
 <body>
 	
-	<div class="PopGuiWindow" id="HelpWindow" style="position: absolute; left: 10vmin; bottom: 10vmax; width: 70vmin; height: 20vmax; max-height:20vmin; z-index: 99;">
+	<div class="PopGuiWindow" id="JoinWindow">
 		<div class="PopGuiTitleBar" style="pointer-events: none;">
-			<div class="PopGuiTitleText">Help</div>
+			<div class="PopGuiTitleText">Join Game</div>
 		</div>
-		<div class="PopGuiIconView" style="display: block; position: absolute; left: 0%; right: 0%; top: 0px; bottom: 0px; overflow: scroll;">
-			<ul style="padding-left:20px">
-				<li>In multiplayer minesweeper, take turns to try and FIND the mines by clicking on them!</li>
-				<li>A gold star &#11088; for every game winner.</li>
-				<li>The window flashes when it's your turn!</li>
-				<li>Like the sands of time, it never ends.</li>
-			</ul>
+		<div class="PopGuiIconView" style="display: block; position: absolute; left: 0%; right: 0%; top: 0px; bottom: 0px; overflow: scroll; padding:10px;">
+			<div>Enter a room code to join friends!</div>
+			<br/>
+			<input type=text id=JoinRoomName placeholder="ABCD" required="" pattern="[A-Za-z]{4}" />
+			<input type=button value="Join"  onclick="OnClickedJoinNewRoom(this);"/>
 		</div>
 	</div>
 	
-	<div id="GameWindow"></div>
-	
-	<div class=PacketDebug>
-		<div id=Error>
-			Error.
+	<div class="PopGuiWindow" id="CreateRoomWindow">
+		<div class="PopGuiTitleBar" style="pointer-events: none;">
+			<div class="PopGuiTitleText">Create new game</div>
 		</div>
-		<div id=MoveButtonContainer>
-			Moves.
-		</div>
-		<div id=CurrentState>
-			State.
-		</div>
-		<div id=LastAction>
-			Last Action.
-		</div>
-		<div id=Debug>
-			Debug.
+		<div class="PopGuiIconView" style="display: block; position: absolute; left: 0%; right: 0%; top: 0px; bottom: 0px; overflow: scroll; padding:10px;">
+			<div>Create a new room and invite others to join!</div>
+			<br/>
+			<input type=button value="Create new room" onclick="OnClickedCreateNewRoom(this);"/>
+			<div id="CreateNewRoomError"></div>
+			<div id="CreateNewRoomResult"></div>
 		</div>
 	</div>
+	
 
 	<script src='PopEngineCommon/PopWebApi.js'></script>
 	<script src='PopEngineCommon/PopApi.js'></script>
@@ -111,95 +127,86 @@ body
 	<script src='PopEngineCommon/PopCamera.js'></script>
 	<script src='PopEngineCommon/PopShaderCache.js'></script>
 	<script src='PopEngineCommon/ParamsWindow.js'></script>
-	<script src='bootup.js'></script>
 	<script src='AssetManager.js'></script>
-	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
 	
 	<script>
-		SetGuiControl_Draggable(document.getElementById('HelpWindow'));
+		SetGuiControl_Draggable(document.getElementById('JoinWindow'));
+		SetGuiControl_Draggable(document.getElementById('CreateRoomWindow'));
 		
-		/*
-		async function Bootup()
+		function ShowError(Error)
 		{
-			const AsyncAssetLoads = Pop.GetExeArguments().includes('AsyncAssets');
-						
-			const PreloadAssets =
-			[
-			 //'ConvertAssets.js',
-			 
-			 'Editor.js',
-			 
-				'bootup.js',
-				'Logo.js',
-				'Actors.js',
-				'AssetManager.js',
-				'AssetImport.js',
-			 'Hud.js',
-			 'ParticleActor.js',
-			 'AudioManager.js',
-
-			 'Timeline.js',
-			 'Animals.js',
-			 'PopEngineCommon/PopApi.js',
-			 'PopEngineCommon/PopShaderCache.js',
-			 'PopEngineCommon/PopFrameCounter.js',
-			 'PopEngineCommon/PopMath.js',
-			 'PopEngineCommon/ParamsWindow.js',
-			 'PopEngineCommon/PopTexture.js',
-			 
-			 'PopEngineCommon/PopCinema4d.js',
-			 'PopEngineCommon/PopCollada.js',
-			 'PopEngineCommon/PopPly.js',
-			 'PopEngineCommon/PopObj.js',
-			 'PopEngineCommon/PopSvg.js',
-
-			 'BlitCopy.frag.glsl',
-			 'PhysicsIteration_UpdateVelocity.frag.glsl',
-			 'PhysicsIteration_UpdatePosition.frag.glsl',
-			 'PhysicsIteration_UpdateVelocityPulse.frag.glsl',
-			 'ParticleTriangles.vert.glsl',
-			 'Quad.vert.glsl',
-			 //'Logo/Logo_PhysicsIteration_UpdateVelocity.frag.glsl',
-			 //'Logo/Logo_PhysicsIteration_UpdatePosition.frag.glsl',
-			// 'Logo/LogoParticle.frag.glsl',
-			 //'Logo/LogoParticle.vert.glsl',
-			 //'Logo/LogoSdf.frag.glsl',
-			 //'Logo/Logo.svg.json',
-			 
-			 'Animals.json'
-	 
-			];
-			
-			//	queue up dependencies for bootup
-			if ( AsyncAssetLoads )
-			{
-				//	trigger all then wait for them all to finish
-				const AssetPromises = [];
-				const Load = function(Filename)
-				{
-					const Promise = Pop.AsyncCacheAssetAsString(Filename);
-					AssetPromises.push( Promise );
-				}
-				PreloadAssets.forEach( Load );
-				await Promise.all( AssetPromises );
-			}
-			else
-			{
-				//	await one by one
-				for ( let i=0;	i<PreloadAssets.length;	i++ )
-				{
-					const Filename = PreloadAssets[i];
-					await Pop.AsyncCacheAssetAsString(Filename);
-				}
-			}
-			
-			//	these need to finish for bootup
-			let Source = await Pop.LoadFileAsStringAsync('bootup.js');
-			Pop.CompileAndRun( Source, 'bootup.js' );
+			const ErrorDiv = document.querySelector('#CreateNewRoomError');
+			ErrorDiv.innerText = `Error! ${Error}`;
 		}
-
-		Bootup().then( e=>Pop.Debug("Finished!",e) ).catch( console.error );
-	*/
+		
+		function GetRoomUrl(RoomName)
+		{
+			return `Minesweeper.html?Room=${RoomName}`
+		}
+		
+		async function JoinRoom()
+		{
+			const RoomNamePattern = new RegExp('[A-Za-z]{4}');
+			const JoinRoomNameInput = document.querySelector('#JoinRoomName');
+			const RoomName = JoinRoomNameInput.value;
+			if ( !RoomName.match(RoomNamePattern) )
+				throw `Invalid room code ${RoomName}, expected 4 letters`;
+			
+			//	redirect
+			const Url = GetRoomUrl(RoomName);
+			window.location.href = Url;	
+		}
+		
+		function OnClickedJoinNewRoom(Button)
+		{
+			JoinRoom().catch(ShowError);
+		}
+		
+		function OnClickedCreateNewRoom(Button)
+		{
+			const ErrorDiv = document.querySelector('#CreateNewRoomError');
+			const ResultDiv = document.querySelector('#CreateNewRoomResult');
+			const JoinRoomNameInput = document.querySelector('#JoinRoomName');
+			
+			function OnError(Error)
+			{
+				Button.disabled = false;
+				ResultDiv.innerText = '';
+				
+				ShowError(Error);
+			}
+			
+			async function OnRoom(RoomName)
+			{
+				JoinRoomNameInput.value = RoomName;
+				ErrorDiv.innerText = '';
+				const Url = GetRoomUrl(RoomName);
+				ResultDiv.innerHTML = `Joining <a href="${Url}">room ${RoomName}</a>`;
+				
+				for ( let i=0;	i<3;	i++ )
+				{
+					await Pop.Yield(1*1000);
+					ResultDiv.innerHTML += `.`;
+				}
+				
+				JoinRoom();
+			}
+			
+			//	disable to stop user clicking it
+			Button.disabled = true;
+			CreateNewRoomThread(Button).then(OnRoom).catch(OnError);
+		}
+		
+		async function CreateNewRoomThread()
+		{
+			const NewRoomUrl = '/NewRoom';
+			const Response = await fetch(NewRoomUrl);
+			const ResultJson = await Response.json();
+			if ( !ResultJson.RoomName )
+				throw `Room name not generated`;
+			return ResultJson.RoomName;
+		}
+		
 	</script>
 	
 </body>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="win95.css" />
+<style>
+	/* disable scrolling on ios
+	 https://stackoverflow.com/a/57489918/355753
+	 */
+
+body
+{
+	background:		#0cc;
+}
+
+.PacketDebug
+{
+	display:	none;
+}
+
+#MoveButtonContainer
+{
+	background:	#aaa;
+}
+
+#CurrentState
+{
+	background:	#aaf;
+}
+
+#LastAction
+{
+	background:	#ffa;
+}
+
+#Debug
+{
+	background:	#afa;
+}
+
+#Error
+{
+	background:	#faa;
+}
+
+#GameWindow
+{
+	opacity:	0.80;
+	position:	absolute;
+	left:		4vmin;
+	top:		4vmin;
+	right:		4vmin;
+	bottom:		4vmin;
+	xheight:		200px;
+	xwidth:		200px;
+}
+
+#Minesweeper
+{
+	width:	100%;
+	height:	100%;
+}
+
+</style>
+</head>
+<body>
+	
+	<div class="PopGuiWindow" id="HelpWindow" style="position: absolute; left: 10vmin; bottom: 10vmax; width: 70vmin; height: 20vmax; max-height:20vmin; z-index: 99;">
+		<div class="PopGuiTitleBar" style="pointer-events: none;">
+			<div class="PopGuiTitleText">Help</div>
+		</div>
+		<div class="PopGuiIconView" style="display: block; position: absolute; left: 0%; right: 0%; top: 0px; bottom: 0px; overflow: scroll;">
+			<ul style="padding-left:20px">
+				<li>In multiplayer minesweeper, take turns to try and FIND the mines by clicking on them!</li>
+				<li>A gold star &#11088; for every game winner.</li>
+				<li>The window flashes when it's your turn!</li>
+				<li>Like the sands of time, it never ends.</li>
+			</ul>
+		</div>
+	</div>
+	
+	<div id="GameWindow"></div>
+	
+	<div class=PacketDebug>
+		<div id=Error>
+			Error.
+		</div>
+		<div id=MoveButtonContainer>
+			Moves.
+		</div>
+		<div id=CurrentState>
+			State.
+		</div>
+		<div id=LastAction>
+			Last Action.
+		</div>
+		<div id=Debug>
+			Debug.
+		</div>
+	</div>
+
+	<script src='PopEngineCommon/PopWebApi.js'></script>
+	<script src='PopEngineCommon/PopApi.js'></script>
+	<script src='PopEngineCommon/PopWebOpenglApi.js'></script>
+	<script src='PopEngineCommon/PopWebGuiApi.js'></script>
+	<script src='PopEngineCommon/PopWebImageApi.js'></script>
+	<script src='PopEngineCommon/PopWebSocketApi.js'></script>
+	<script src='PopEngineCommon/PopWebXrApi.js'></script>
+
+	<!-- engine normally loads these in-code -->
+	<script src='PopEngineCommon/PopMath.js'></script>
+	<script src='PopEngineCommon/PopCamera.js'></script>
+	<script src='PopEngineCommon/PopShaderCache.js'></script>
+	<script src='PopEngineCommon/ParamsWindow.js'></script>
+	<script src='bootup.js'></script>
+	<script src='AssetManager.js'></script>
+	
+	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
+	
+	<script>
+		SetGuiControl_Draggable(document.getElementById('HelpWindow'));
+	</script>
+	
+</body>
+
