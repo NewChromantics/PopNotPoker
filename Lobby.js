@@ -212,6 +212,7 @@ const { spawn } = require( "child_process" );
 //	returns meta
 async function StartRoomProcess(RoomName)
 {
+	Pop.Debug(`StartRoomProcess(${RoomName})`);
 	const Meta = {};
 	Meta.Name = RoomName;
 
@@ -256,15 +257,16 @@ async function StartRoomProcess(RoomName)
 
 	RoomProcess.on( "close", ( code ) =>
 	{
-		console.log("Finished")
+		console.log(`Room process finished ${code}`)
 		ListeningPortPromise.Reject('Process closed');
 	} );
 		
 	//	wait for app to bootup and put out port number (or process fail)
+	Pop.Debug(`StartRoomProcess waiting for listening port...`);
 	Meta.Port = await ListeningPortPromise;
+	Pop.Debug(`StartRoomProcess done, listening on port ${Meta.Port}`);
 	
 	return Meta;
-	
 }
 
 
@@ -291,6 +293,7 @@ function GetNewRoomName()
 {
 	const Tried = [];
 	
+	//	gr: do a proper hashtable system by generating 1 random, then increment until we find a free slot
 	for ( let i=0;	i<100;	i++ )
 	{
 		const Fourcc = CreateRandomHash();
@@ -321,7 +324,7 @@ async function SpawnRoomThread()
 			Pop.Debug(`Generating new room name`);
 			const NewRoomName = GetNewRoomName();
 			const RoomMeta = await StartRoomProcess(NewRoomName);
-			Pop.Debug(`New room; ${JSON.stringify(RoomMeta)}`);
+			//Pop.Debug(`New room; ${JSON.stringify(RoomMeta)}`);	//	<-- meta here is circular, dont stringify
 			RoomProcesses[RoomMeta.Name] = RoomMeta;
 			NextRequest.Resolve(RoomMeta.Name);
 		}
@@ -357,11 +360,9 @@ async function SpawnNewRoom()
 	{	
 		const NewRoomName = GetNewRoomName();
 		const RoomMeta = await StartRoomProcess(NewRoomName);
-		Pop.Debug(`New room; ${JSON.stringify(RoomMeta)}`);
+		//Pop.Debug(`New room; ${JSON.stringify(RoomMeta)}`);	//	<-- meta here is circular, dont stringify
 		RoomProcesses[RoomMeta.Name] = RoomMeta;
-		//NextRequest.Resolve(FirstMeta.Name);
-		
-		return NewRoomName;
+		return RoomMeta.Name;
 	}
 }
 
@@ -475,13 +476,22 @@ async function OnHttpRequestNewRoom(req,res)
 	res.end();
 */
 	Pop.Debug(`Requested new room...`);
-	const NewRoomName = await SpawnNewRoom();
-	Pop.Debug(`Got new room`);
 	const Result = {};
-	Result.RoomName = NewRoomName;
+	try
+	{
+		const NewRoomName = await SpawnNewRoom();
+		Pop.Debug(`Got new room [${NewRoomName}]`);
+		Result.RoomName = NewRoomName;
+		const StringifyTest = JSON.stringify(Result,null,'\t');
+	}
+	catch(e)
+	{
+		Pop.Debug(`Error making new room: ${e}`);
+		//	try and show errors to user
+		Result.Error = `${e}`;
+	}
 	
 	const ResultJson = JSON.stringify(Result,null,'\t');
-	
 	res.statusCode = 200;
 	res.setHeader('Content-Type','text/json');
 	res.end(ResultJson);
@@ -502,7 +512,7 @@ async function OnHttpRequest(req,res)
 	}
 	catch(e)
 	{
-		Pop.Debug(`Error ${e}`);
+		Pop.Debug(`OnHttpRequest Error ${e}`);
 		//	send back error
 		res.statusCode = 500;
 		res.setHeader('Content-Type','text/plain');
