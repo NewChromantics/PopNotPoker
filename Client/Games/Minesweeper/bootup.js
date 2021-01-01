@@ -9,7 +9,6 @@ Pop.Include('PopEngineCommon/ParamsWindow.js');
 Pop.Include('PopEngineCommon/PopFrameCounter.js');
 Pop.Include('PopEngineCommon/PopApi.js');
 
-Pop.Include('Minesweeper.js');
 Pop.Include('AssetManager.js');
 
 
