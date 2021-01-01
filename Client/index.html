@@ -202,6 +202,8 @@ body
 			const NewRoomUrl = '/NewRoom';
 			const Response = await fetch(NewRoomUrl);
 			const ResultJson = await Response.json();
+			if ( ResultJson.Error )
+				throw ResultJson.Error;
 			if ( !ResultJson.RoomName )
 				throw `Room name not generated`;
 			return ResultJson.RoomName;
