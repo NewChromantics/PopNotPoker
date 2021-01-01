@@ -52,7 +52,8 @@ Local docker
  - change `YOUR_AUTH_TOKEN` for your (any) github personal access token
 - `npm install`
 - `docker build . -t popnotpoker -f ./Dockerfile`
-- `docker run popnotpoker -p 8000:8000`
+- `docker run -p 8000:8000 popnotpoker`
+- or `docker build . -t popnotpoker -f ./Dockerfile && docker run -p 8000:8000 popnotpoker`
 
 Local Node
 -----------------
