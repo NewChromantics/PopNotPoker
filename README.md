@@ -58,3 +58,15 @@ Local docker
 Local Node
 -----------------
 - `node Lobby.js` (fix popengine local paths!)
+
+
+Local Server Macos
+----------------------
+To make writing a game simpler, you can run a single room instance, which is debuggable in safari.
+
+Run a room with a `PopEngine` executable and pass in `Server/` (or use cwd as `Server/`, normal PopEngine execution)
+This will start a room (websocket server) ready for clients, and output the port to stdout.
+
+To connect to it, we need a client, eg, a webpage. In theory you could just open the `$Game.html` page (or. `DebugGame.html` which will work for any game) but chrome will not serve various files over `file://` so you need to run a local webserver.
+- `python -m SimpleHTTPServer 8000` in `/Client` folder, then browse to `http://localhost:8000/?Hostname=localhost&Port=$PortFromServer` which will connect.
+

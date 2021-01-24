@@ -11,13 +11,13 @@ Pop.Include('Games/Minesweeper.js');
 Pop.Include('Games/MealDeal.js');
 //Pop.Include('Games/PickANumber.js');
 
-
+/*
 try {
 	const Window = new Pop.Gui.Window("Server");
 } catch (e) {
 	console.error(e)
 }
-
+*/
 function CreateRandomHash(Length=4)
 {
 	//	generate string of X characters
@@ -33,14 +33,13 @@ function CreateRandomHash(Length=4)
 }
 
 
-async function RunGameRoomLoop(Room)
+async function RunGameRoomLoop(Room,GameClass)
 {
 	while(true)
 	{
 		Pop.Debug(`New Game!`);
 
-		//const Game = new TMealDealGame();
-		const Game = new TMinesweeperGame();
+		const Game = new GameClass();
 		//	for players still in room from a previous game, turn them back into waiting
 		//	players so they go through the same joining routine
 		Room.DeactivatePlayers();
@@ -174,7 +173,7 @@ class LobbyPlayer
 
 class LobbyWebSocketServer
 {
-	constructor(ListenPorts)
+	constructor(ListenPorts,OnListening)
 	{
 		this.GameHash = CreateRandomHash();
 		this.WaitingPlayers = [];	//	list of players who want to join
@@ -193,7 +192,7 @@ class LobbyWebSocketServer
 			return this.Ports[CurrentPort];
 		}
 		this.CurrentSocket = null;
-		this.WebSocketServerLoop(GetNextPort.bind(this)).then(Pop.Debug).catch(Pop.Debug);
+		this.WebSocketServerLoop(GetNextPort.bind(this),OnListening).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
 	GetMeta(Game)
@@ -242,7 +241,7 @@ class LobbyWebSocketServer
 		ActivePeers.forEach(SendPing.bind(this));
 	}
 	
-	async WebSocketServerLoop(GetNextPort)
+	async WebSocketServerLoop(GetNextPort,OnListening)
 	{
 		while(true)
 		{
@@ -254,10 +253,8 @@ class LobbyWebSocketServer
 				
 				//	get & report the port we're actually listening on
 				{
-					const Address0 = Socket.GetAddress()[0].Address;
-					const AddressAndPort = Address0.split(':');					
-					const ListeningPort = AddressAndPort[1];
-					Pop.StdOut(`Listening on ${ListeningPort}`);
+					const Addresses = Socket.GetAddress();
+					OnListening(Addresses);
 				}
 				
 				//	regularly send a ping to catch if a peer has disconnected (todo: use websocket ping!)
@@ -661,13 +658,34 @@ class LobbyWebSocketServer
 }
 
 
-async function RunGameLoop()
+function OnListening(Addresses)
 {
-	const Ports = [0];
-	const Room = new LobbyWebSocketServer(Ports);
+	const Address0 = Addresses[0].Address;
+	const AddressAndPort = Address0.split(':');					
+	const ListeningPort = AddressAndPort[1];
+					
+	Pop.StdOut(`Listening on ${ListeningPort}`);
+	
 	try
 	{
-		await RunGameRoomLoop(Room);
+		Pop.ShowWebPage(`http://localhost:${ListeningPort}`);
+	}
+	catch(e)
+	{
+	}
+}
+
+async function RunGameLoop()
+{
+	const GameClass = TMinesweeperGame;
+	//const Game = new TMealDealGame();
+	//const Game = new TMinesweeperGame();
+
+	const Ports = [0];
+	const Room = new LobbyWebSocketServer(Ports,OnListening);
+	try
+	{
+		await RunGameRoomLoop(Room,GameClass);
 		Pop.ExitApplication(0);		
 	}
 	catch(e)
