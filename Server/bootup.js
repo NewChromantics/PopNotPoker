@@ -1,5 +1,38 @@
 Pop.Debug("PopNotPoker room booting up");
 
+
+//	from webapi, move this into native 
+//	gr: I thought I already did this
+function GetExeArgs()
+{
+	const UrlArgs = Pop.GetExeArguments();
+	
+	//	turn into keys & values - gr: we're not doing this in engine! fix so they match!
+	const UrlParams = {};
+	function AddParam(Argument)
+	{
+		let [Key,Value] = Argument.split('=',2);
+		if ( Value === undefined )
+			Value = true;
+		
+		//	attempt some auto conversions
+		if ( typeof Value == 'string' )
+		{
+			const NumberValue = Number(Value);
+			if ( !isNaN(NumberValue) )
+				Value = NumberValue;
+			else if ( Value == 'true' )
+				Value = true;
+			else if ( Value == 'false' )
+				Value = false;
+		}
+		UrlParams[Key] = Value;
+	}
+	UrlArgs.forEach(AddParam);
+	return UrlParams;
+}
+
+
 Pop.Include = function(Filename)
 {
 	const Source = Pop.LoadFileAsString(Filename);
@@ -658,21 +691,61 @@ class LobbyWebSocketServer
 }
 
 
+function CreateClientHttpServer(ServePath,Port=0)
+{
+	function HandleVirtualFile(Response)
+	{
+		//	return a filename to redirect
+		const Filename = Response.Url;
+		return `${ServePath}/${Filename}`;
+	}
+	const Http = new Pop.Http.Server(Port,HandleVirtualFile);
+	return Http;
+}
+
+
+const Args = GetExeArgs();
+Pop.Debug(`Args=${JSON.stringify(Args)}`);
+//	need a global to stop server being garbage collected
+let ClientHttpServer = null;
+
+
+function StartClientHttpServer(ServerHost,ServerPort,ServerRoom)
+{
+	if ( !Args.HttpServer )
+		return;
+	
+	if ( !ClientHttpServer )
+	{
+		const ServePath = Args.HttpServer;
+		ClientHttpServer = CreateClientHttpServer(ServePath);
+	}
+	
+	const HttpAddress = ClientHttpServer.GetAddress()[0].Address;
+	const Url = `http://${HttpAddress}/Minesweeper.html?Hostname=${ServerHost}&Port=${ServerPort}&Room=${ServerRoom}`;
+	Pop.Debug(`Show url ${JSON.stringify(HttpAddress)}`);
+	Pop.Debug(Url);
+	Pop.ShowWebPage(Url);
+}
+
+
 function OnListening(Addresses)
 {
 	const Address0 = Addresses[0].Address;
 	const AddressAndPort = Address0.split(':');					
 	const ListeningPort = AddressAndPort[1];
-					
+
 	Pop.StdOut(`Listening on ${ListeningPort}`);
 	
 	try
 	{
-		Pop.ShowWebPage(`http://localhost:${ListeningPort}`);
+		//Pop.ShowWebPage(`http://localhost:${ListeningPort}`);
 	}
 	catch(e)
 	{
 	}
+	
+	StartClientHttpServer('localhost',ListeningPort,'No room name');
 }
 
 async function RunGameLoop()

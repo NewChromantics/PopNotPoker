@@ -151,7 +151,7 @@ function AllocGame(GameType,SendCommand)
 	Pop.Debug(`AllocGame(${GameType})`);
 	switch(GameType)
 	{
-		//case null:	//	not currently reporting on server
+		case null:	//	not currently reporting on server
 		case 'TMinesweeperGame':
 			return new TMinesweeperClient(SendCommand);
 	}

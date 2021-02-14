@@ -2,9 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:">
+      location = "group:../PopEngine/PopEngine.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:../PopEngine/PopEngine.xcodeproj">
+      location = "group:">
    </FileRef>
 </Workspace>

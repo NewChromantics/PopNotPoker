@@ -12,9 +12,20 @@ body
 	background:		#0cc;
 }
 
+#ToggleDebugButton
+{
+	/* make sure is displayed on top */
+	position:	absolute;
+	z-index:	101;
+	background:	#eee;
+}
+
 .PacketDebug
 {
 	display:	none;
+	
+	position:	relative;
+	z-index:	100;
 }
 
 #MoveButtonContainer
@@ -63,6 +74,24 @@ body
 </style>
 </head>
 <body>
+	<script>
+		function ToggleDebugDiv()
+		{
+			const Elements = document.querySelectorAll('.PacketDebug');
+			let Visible = null;
+			function ToggleElementDisplay(Element)
+			{
+				let Display = window.getComputedStyle(Element).display;
+				let IsVisible = Display !== 'none';
+				let NowVisible = (Visible === null) ? !IsVisible : Visible;
+				Display = NowVisible ? 'initial' : 'none';
+				Element.style.display = Display;
+				Visible = NowVisible;
+			}
+			Elements.forEach(ToggleElementDisplay);
+		}
+	</script>
+	<div id=ToggleDebugButton><a href="javascript:ToggleDebugDiv()">Debug</a></div>
 	
 	<div class="PopGuiWindow" id="HelpWindow" style="position: absolute; left: 10vmin; bottom: 10vmax; width: 70vmin; height: 20vmax; max-height:20vmin; z-index: 99;">
 		<div class="PopGuiTitleBar" style="pointer-events: none;">
