@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="win95.css" />
+<style>
+</style>
+</head>
+<body>
+	
+<div>WebRtc</div>
+<script src='PopEngineCommon/PopWebApi.js'></script>
+	<script src='PopEngineCommon/PopApi.js'></script>
+	<script src='PopEngineCommon/PopWebOpenglApi.js'></script>
+	<script src='PopEngineCommon/PopWebGuiApi.js'></script>
+	<script src='PopEngineCommon/PopWebImageApi.js'></script>
+	<script src='PopEngineCommon/PopWebSocketApi.js'></script>
+	<script src='PopEngineCommon/PopWebXrApi.js'></script>
+
+	<!-- engine normally loads these in-code -->
+	<script src='PopEngineCommon/PopMath.js'></script>
+	<script src='PopEngineCommon/PopCamera.js'></script>
+	<script src='PopEngineCommon/PopShaderCache.js'></script>
+	<script src='PopEngineCommon/ParamsWindow.js'></script>
+	
+<script>
+	const IceServers = null;
+	
+	
+	async function ConnectToRemote()
+	{
+		const LocalConnection = new RTCPeerConnection(IceServers);
+		//	gr: have to create streams and channels before creating offer (description) to get ice candidate callback
+		const TextChannel = LocalConnection.createDataChannel('Text');
+		
+		
+		const LocalDescription = await LocalConnection.createOffer();
+		LocalConnection.setLocalDescription( LocalDescription  );
+		
+		const RemotePeer = new RTCPeerConnection( IceServers );
+		
+		function OnFoundDataChannel(Event)
+		{
+			const Channel = Event.channel;
+			Channel.onmessage = e => console.log(`Remote channel got message`,e);
+			Channel.onopen = e => console.log(`Remote channel open`,e);
+			Channel.onclose = e => console.log(`Remote channel close`,e);
+		}
+		RemotePeer.ondatachannel = OnFoundDataChannel;
+
+
+		RemotePeer.setRemoteDescription( LocalDescription );
+		const RemoteDescription = await RemotePeer.createAnswer();
+		RemotePeer.setLocalDescription( RemoteDescription );
+
+
+		//	marry local with remote
+		const LocalAddedRemoteCandidate = Pop.CreatePromise();
+		const RemoteAddedLocalCandidate = Pop.CreatePromise();
+		function OnLocalIceCandidate(Event)
+		{
+			console.log(`OnLocalIceCandidate`,Event);
+			RemotePeer.addIceCandidate( Event.candidate ).then( RemoteAddedLocalCandidate.Resolve ).catch(RemoteAddedLocalCandidate.Reject);
+		}
+		function OnRemoteIceCandidate(Event)
+		{
+			console.log(`OnRemoteIceCandidate`,Event);
+			LocalConnection.addIceCandidate( Event.candidate ).then( LocalAddedRemoteCandidate.Resolve ).catch(LocalAddedRemoteCandidate.Reject);
+		}
+	
+		LocalConnection.onicecandidate = OnLocalIceCandidate; 
+		LocalConnection.setRemoteDescription( RemoteDescription );
+		
+		console.log(`connected `,LocalDescription,RemoteDescription);
+		
+		//	make channels
+		const TextChannelPromise = Pop.CreatePromise();
+		function OnTextChannelOpen(e)
+		{
+			console.log(`OnTextChannelOpen`);
+			TextChannelPromise.Resolve(e);
+		}
+		function OnTextChannelClose(e)
+		{
+			console.log(`OnTextChannelClose`);
+			TextChannelPromise.Reject(e);
+		}
+		TextChannel.onopen = OnTextChannelOpen;
+		TextChannel.onclose = OnTextChannelClose;
+		
+		Pop.Debug(`Waiting for text channel`);
+		const State = await TextChannelPromise;
+				
+		for ( let i=0;	i<1000;	i++ )
+		{
+			await Pop.Yield(500);
+			Pop.Debug(`Send`);
+			TextChannel.send(`Message ${i}`);
+		}
+	}
+	
+	/*
+	class Self_t
+	{
+		constructor(OnIceCandidate,OnDescription)
+		{
+			this.OnIceCandidate = OnIceCandidate;
+			this.OnDescription = OnDescription;
+			this.Connection = new RTCPeerConnection(IceServers);
+			this.Connection.onicecandidate = this.OnIceCandiate.bind(this);
+			
+			this.Connect().catch( console.error );
+			
+			this.DataChannel = this.Connection.createDataChannel('SendingDataChannel');
+			this.DataChannel.onopen = x => console.log(`Data channel open ${x}`);
+			this.DataChannel.onclose = x => console.log(`Data channel close ${x}`);
+		}
+		
+		async Connect()
+		{
+			const Description = await this.Connection.createOffer();
+			this.Connection.setLocalDescription( Description  );
+			this.OnDescription( Description );
+		}
+		
+		OnIceCandiate(Event)
+		{
+			const MyCandidate = Event.candidate;
+			console.log(`OnIceCandidate ${Event}`);
+			
+			this.OnIceCandidate( MyCandidate );
+			
+		}
+	}
+	
+	class Peer_t
+	{
+		constructor()
+		{
+			this.Connection = new RTCPeerConnection(IceServers);
+		}
+	}
+	
+	let Peer = new Peer_t();
+	
+	function OnSelfIce(Ice)
+	{
+	}
+	function OnSelfDescription(Description)
+	{
+		Peer.setRemoteDescription(Description);
+	}
+	
+	let Self = new Self_t(
+	*/
+	
+	ConnectToRemote().then( console.log ).catch( console.error );
+	</script>
+</body>
+
