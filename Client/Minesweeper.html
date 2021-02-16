@@ -71,6 +71,14 @@ body
 	height:	100%;
 }
 
+#ChatWindow
+{
+	position:	absolute;
+	bottom:		0vh;
+	left:		0vw;
+	width:		100vw;
+}
+
 </style>
 </head>
 <body>
@@ -152,6 +160,10 @@ body
 		SetGuiControl_Draggable(document.getElementById('HelpWindow'));
 	</script>
 	
+	<div id=ChatWindow>
+		<div id=ChatContent>Chat</div>
+		<div><input type=text value="Type something and press enter"/></div>
+	</div>
 	
 	<script>
 	
@@ -287,6 +299,66 @@ class TPlayerWindow
 const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaroo,Lobster,Mouse,Owl,Pig,Quail,Rabbit,Sheep,Tiger,Walrus,Zebra`.split(',');
 
 let PlayerWindow = null;
+//	we need a server for each peer
+//	and a client to connect to each peer's server
+let PeerServers = {};	//	[hash]
+let PeerClients = {};	
+
+		function UpdatePeerConnections(PeerHash)
+		{
+			//	make sure we have a server for this peer
+			//	if this peer has a server-address, make sure we have a client for it (and connect)
+			
+		}
+		
+		function GetPeerConnectionMeta(PeerHash)
+		{
+			const Meta = {};
+			//	report server address if we're waiting for peer to connect
+			//	Meta.ServerAddress = PeerServers[PeerHash].GetAddress()
+			//	report client address if we're still waiting for them to join
+			//	Meta.ClientAddress = PeerClients[PeerHash].GetAddress()
+			return Meta;
+		}
+
+		function OnChatString(String)
+		{
+			if ( !String || String.length == 0 )
+				return;
+			const MaxLines = 20;
+			const ChatContentElement = document.querySelector(`#ChatWindow #ChatContent`);
+			let Content = ChatContentElement.innerText.split('\n');
+			Content.push(String);
+			Content = Content.slice(-MaxLines);
+			ChatContentElement.innerText = Content.join('\n');
+		}
+
+		function SendChatString(String)
+		{
+			if ( !String || String.length == 0 )
+				return;
+				
+			let SoundCount = 0;
+			const Data = String;
+			const Servers = Object.values(PeerServers);
+			function Send(Server)
+			{
+				try
+				{
+					Server.Send(Data);
+					SoundCount++;
+				}
+				catch(e)
+				{
+				}
+			}
+			Servers.forEach(Send);
+			
+			//	nothing got sent
+			if ( SoundCount == 0 )
+				OnChatString(`${String} <-- Not connected to anyone`);
+		}
+
 
 		function GetLocalPlayerName()
 		{
@@ -336,11 +408,33 @@ let PlayerWindow = null;
 			document.onclick = DisableSleep;
 		}
 		
+		function SetupChatUi()
+		{
+			const ChatInput = document.querySelector(`#ChatWindow * input`);
+			function OnKeyPress(Event)
+			{
+				if ( Event.key == 'Escape' )
+				{
+					ChatInput.value = '';
+					return;
+				}
+				if ( Event.key == 'Enter' )
+				{
+					SendChatString(ChatInput.value);
+					ChatInput.value = '';
+					return;
+				}
+			}
+			ChatInput.onkeypress = OnKeyPress;			
+		}
+				
 		async function Run(GetGameClass)
 		{
 			Bootup( GetGameClass, GetLocalPlayerMeta, xxOnPlayerMetaChanged );
 		}
+		
 		PreventSleep();
+		SetupChatUi();
 		Run();
 	
 	</script>
