@@ -284,13 +284,15 @@ class TPlayerWindow
 	}
 }
 
+const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaroo,Lobster,Mouse,Owl,Pig,Quail,Rabbit,Sheep,Tiger,Walrus,Zebra`.split(',');
+
 let PlayerWindow = null;
 
 		function GetLocalPlayerName()
 		{
-			const DefaultName = 'Your player name';
+			const DefaultName = DefaultNames[ Math.floor( Math.random() * DefaultNames.length ) ];
 			let Name = window.sessionStorage.getItem('LocalPlayerName');
-			if ( !Name )
+			if ( !Name || Name.length==0 )
 				return DefaultName;
 			return Name;
 		}
