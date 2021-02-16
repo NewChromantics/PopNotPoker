@@ -10,9 +10,8 @@ const ErrorGui = new Pop.Gui.Label('Error');
 
 class TDebugClient
 {
-	constructor(SendCommand)
+	constructor()
 	{
-		this.SendCommand = SendCommand;
 		/*
 		this.RenderWindow = new TMinesweeperWindow();
 		this.PlayerWindow = new PlayerWindow( this.OnLocalNameChanged.bind(this) );
@@ -68,15 +67,6 @@ class TDebugClient
 			this.RenderWindow.SetState(State);
 		}
 		this.UpdateQueue.Push(Run.bind(this));
-		*/
-	}
-	
-	OnLocalNameChanged(NewName)
-	{
-	/*
-		//	send back to server
-		Pop.Debug(`Set name ${NewName}`);
-		this.SendCommand('SetName',NewName);
 		*/
 	}
 	
@@ -146,20 +136,20 @@ class TDebugClient
 
 const Games = {};
 
-function AllocGame(GameType,SendCommand)
+function AllocGame(GameType)
 {
 	Pop.Debug(`AllocGame(${GameType})`);
 	switch(GameType)
 	{
 		case null:	//	not currently reporting on server
 		case 'TMinesweeperGame':
-			return new TMinesweeperClient(SendCommand);
+			return new TMinesweeperClient();
 	}
-	return new TDebugClient(SendCommand);
+	return new TDebugClient();
 	throw `Unknown game type ${GameType}`;
 }
 
-function GetGame(Packet,SendCommand)
+function GetGame(Packet)
 {
 	//	gr: this probbaly shouldnt be under state
 	const GameHash = Packet.Meta.GameHash;
@@ -170,7 +160,7 @@ function GetGame(Packet,SendCommand)
 	if ( !Games.hasOwnProperty(GameHash) )
 	{
 		Pop.Debug(`New game! ${GameHash}:${GameType}`);
-		Games[GameHash] = AllocGame( GameType, SendCommand );
+		Games[GameHash] = AllocGame( GameType );
 	}
 	
 	return Games[GameHash];
@@ -237,7 +227,7 @@ function OnMoveRequest(Move,SendReply)
 	ErrorGui.SetValue(Move.LastMoveError||"");
 }
 
-function OnMessage(Message,SendReply)
+function MessageHandler(Message,SendReply,GetLocalPlayerMeta,OnPlayerMetaChanged)
 {
 	function SendCommand(Command,Data)
 	{
@@ -262,6 +252,12 @@ function OnMessage(Message,SendReply)
 	if ( Message.Command == 'Ping' )
 	{
 		//	pong?
+		//	gr: when we get a ping, use that as a timer to update local player meta
+		const PlayerMeta = GetLocalPlayerMeta();
+		if ( PlayerMeta )
+		{
+			SendCommand('SetMeta',PlayerMeta);
+		}
 		return;
 	}
 	
@@ -272,7 +268,10 @@ function OnMessage(Message,SendReply)
 		return;
 	}
 	
-	const Game = GetGame(Message,SendCommand);
+	const Game = GetGame(Message);
+
+	//	update player meta
+	OnPlayerMetaChanged(Message);
 
 	//	update state
 	if ( Message.State )
@@ -364,10 +363,6 @@ async function ConnectToServerLoop(GetAddress,OnMessage)
 	}
 }
 
-//	gr: is this the best way to get room in?
-const RoomName = Pop.GetExeArguments().Room;
-if ( !RoomName )
-	Pop.Warning(`Room is not defined [${RoomName}]`);
 
 let ConnectTry = null;
 function GetNextAddress()
@@ -375,7 +370,7 @@ function GetNextAddress()
 	const Addresses = [];
 
 	//	default combinations
-	let HostNames = ['localhost'];
+	let HostNames = [window.location.hostname,'localhost'];
 	let Ports = [80,8000,10001,10002,10003];
 
 	//	let user insert hostname/port
@@ -391,8 +386,23 @@ function GetNextAddress()
 	ConnectTry = (ConnectTry === null) ? 0 : ConnectTry + 1;
 	
 	let Address = Addresses[ConnectTry%Addresses.length].slice();
-	Address.push( RoomName );
+	
+	//	gr: is this the best way to get room in?
+	const RoomName = Pop.GetExeArguments().Room;
+	if ( RoomName )
+		Address.push( RoomName );
+		
 	return Address;
 }
 
-ConnectToServerLoop(GetNextAddress,OnMessage).catch(Pop.Debug);
+
+function Bootup(GetGameClass,GetLocalPlayerMeta,OnPlayerMetaChanged)
+{
+	function OnMessage(Message,SendReply)
+	{
+		MessageHandler( Message, SendReply, GetLocalPlayerMeta, OnPlayerMetaChanged );
+	}
+
+	ConnectToServerLoop(GetNextAddress,OnMessage).catch(Pop.Debug);
+}
+

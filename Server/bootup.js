@@ -178,7 +178,8 @@ class LobbyPlayer
 	constructor(Hash)
 	{
 		this.Hash = Hash ? Hash : AllocPlayerHash();
-		this.Name = CreateRandomHash(6);
+		this.Meta = {};
+		this.Meta.Name = CreateRandomHash(6);
 		this.Peer = null;
 		this.ReplyWaits = {};		//	[Command] = PromiseWaiting
 		this.OnJoinPromise = null;	//	this promise is resolved by the game allowing player in/out
@@ -234,7 +235,7 @@ class LobbyWebSocketServer
 		{
 			const p = {};
 			p.Hash = Player.Hash;
-			p.Name = Player.Name;
+			p.Meta = Player.Meta;
 			p.Wins = Player.Wins;
 			return p;
 		}
@@ -353,11 +354,13 @@ class LobbyWebSocketServer
 				return;
 			}
 			
-			if ( Packet.Command == 'SetName' )
+			if ( Packet.Command == 'SetMeta' )
 			{
-				//	turn to string in case of attack or future object
-				Player.Name = `${Packet.Arguments}`;
-				Pop.Debug(`Player name changed; ${JSON.stringify(Player)}`);
+				//	assume this is an object
+				Pop.Debug(`SetMeta; ${Packet.Arguments}`);
+				Player.Meta = Packet.Arguments;
+				
+				Pop.Debug(`Player meta changed; ${JSON.stringify(Player)}`);
 				this.OnPlayersChanged(Player);
 				return;
 			}
