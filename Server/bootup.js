@@ -229,7 +229,7 @@ class LobbyWebSocketServer
 		this.WebSocketServerLoop(GetNextPort.bind(this),OnListening).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
-	GetMeta(Game)
+	GetMeta(Peer)
 	{
 		function GetPublicMeta(Player)
 		{
@@ -243,11 +243,15 @@ class LobbyWebSocketServer
 		//	add player info
 		const Meta = {};
 		Meta.GameHash = this.GameHash;
-		Meta.GameType = Game ? Game.constructor.name : null;
+		//Meta.GameType = Game ? Game.constructor.name : null;	//	gr: this is never passed in atm
 		Meta.ActivePlayers = this.ActivePlayers.map(GetPublicMeta);
 		Meta.WaitingPlayers = this.WaitingPlayers.map(GetPublicMeta);
 		Meta.DeletingPlayers = this.DeletingPlayers.map(GetPublicMeta);
 		Meta.DeletedPlayers = this.DeletedPlayers.map(GetPublicMeta);
+		
+		const PeerPlayer = this.GetPlayer(Peer);
+		Meta.YourPlayerHash = PeerPlayer.Hash;
+		
 		return Meta;
 	}
 	
@@ -492,7 +496,7 @@ class LobbyWebSocketServer
 				Notify.Command = 'JoinReply';
 				Notify.Player = Player.Hash;
 				Notify.Debug = SomeMetaFromGame;
-				Notify.Meta = Object.assign({},this.GetMeta());
+				Notify.Meta = this.GetMeta(Peer);
 				this.SendToPeer(Peer,Notify);
 				Pop.Debug(`Peer(${Peer}) joined ${JSON.stringify(Player)}`);
 			}
@@ -503,7 +507,7 @@ class LobbyWebSocketServer
 				const Notify = {};
 				Notify.Command = 'JoinReply';
 				Notify.Error = e;
-				Notify.Meta = Object.assign({},this.GetMeta());
+				Notify.Meta = this.GetMeta(Peer);
 				this.SendToPeer(Peer,Notify);
 			}
 		}
@@ -570,10 +574,10 @@ class LobbyWebSocketServer
 		//	todo: turn ThingObject function members into something static
 		const Notify = {};
 		Notify[Thing] = ThingObject;
-		Notify.Meta = Object.assign({},this.GetMeta());
-		const NotifyJson = JSON.stringify(Notify);
 		function Send(Peer)
 		{
+			Notify.Meta = this.GetMeta(Peer);
+			const NotifyJson = JSON.stringify(Notify);
 			try
 			{
 				Socket.Send(Peer,NotifyJson);
@@ -676,7 +680,7 @@ class LobbyWebSocketServer
 			Request.Hash = Hash;
 			Request[Command] = Data;
 			Request.ReplyCommand = ReplyCommand;	//	could swap this for hash
-			Request.Meta = Object.assign({},this.GetMeta());
+			Request.Meta = this.GetMeta(Peer);
 			const RequestStr = JSON.stringify(Request);
 			this.SendToPeer(Peer,Request);
 		}
