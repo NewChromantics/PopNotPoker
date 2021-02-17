@@ -166,7 +166,8 @@ body
 	</div>
 	
 	<script>
-	
+	"use strict";
+
 class TPlayerWindow
 {
 	constructor(InitialName,OnLocalNameChanged)
@@ -301,23 +302,157 @@ const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaro
 let PlayerWindow = null;
 //	we need a server for each peer
 //	and a client to connect to each peer's server
-let PeerServers = {};	//	[hash]
-let PeerClients = {};	
+let PeerServers = {};	//	[peerhash]
+let PeerClients = {};	//	[peerhash]
 
-		function UpdatePeerConnections(PeerHash)
+		//	gr: maybe need channel here
+		function OnMessage(Packet,FromPeerHash,FromSocket)
 		{
-			//	make sure we have a server for this peer
-			//	if this peer has a server-address, make sure we have a client for it (and connect)
-			
+			OnChatString( Packet.Data );
+			Pop.Debug(`Got packet ${Packet.Data} from ${FromPeerHash}/${FromSocket}`);
 		}
 		
-		function GetPeerConnectionMeta(PeerHash)
+		function CreatePeerServer(PeerHash)
+		{
+			async function Thread(Socket)
+			{
+				Pop.Debug(`${PeerHash} server waiting to connect`);
+				await Socket.WaitForConnect();
+				Pop.Debug(`${PeerHash} server Connected`);
+				while ( true )
+				{
+					const Packet = await Socket.WaitForMessage();
+					OnMessage( Packet, PeerHash, 'Server' );
+				}
+			}
+			const Socket = new Pop.WebRtc.Server();
+			PeerServers[PeerHash] = Socket;
+			Thread(Socket);//.then().catch(Pop.Error);
+		}
+
+		function CreatePeerClient(PeerHash,ServerAddress)
+		{
+			async function Thread(Socket)
+			{
+				Pop.Debug(`${PeerHash} client waiting to connect`);
+				await Socket.WaitForConnect();
+				Pop.Debug(`${PeerHash} client Connected`);
+				while ( true )
+				{
+					const Packet = await Socket.WaitForMessage();
+					OnMessage( Packet, PeerHash, 'Client' );
+				}
+			}
+			const Socket = new Pop.WebRtc.Client(ServerAddress);
+			PeerClients[PeerHash] = Socket;
+			Thread(Socket);//.then().catch(Pop.Error);
+		}
+
+		//	update OUR server for the peer to connect to
+		function UpdatePeerServer(LocalPeerHash,PeerHash,Meta)
+		{
+			//	make sure we have a server for this peer
+			if ( !PeerServers.hasOwnProperty(PeerHash) )
+			{
+				Pop.Debug(`Making server for peer ${PeerHash}`);
+				CreatePeerServer(PeerHash);
+			}
+			
+			//	our server for the peer to connect to
+			const PeerServer = PeerServers[PeerHash];
+			if ( !PeerServer )
+			{
+				Pop.Debug(`We have no server for ${PeerHash}`);
+				return;
+			}
+			
+			//	if this peer has a client address for our server, use it
+			const PeerClientAddress = (Meta.WebRtc && Meta.WebRtc.ClientAddress) ? Meta.WebRtc.ClientAddress[LocalPeerHash] : null;
+			if ( PeerClientAddress )
+			{
+				Pop.Debug(`Adding client address of ${PeerHash} to our server`);
+				PeerServer.AddClient( PeerClientAddress );
+			}
+		}
+		
+		
+		//	update OUR client connecting to the peer's server
+		function UpdatePeerClient(LocalPeerHash,PeerHash,Meta)
+		{
+			//	does peer have a server address for us to connect to?
+			const PeerServerAddress = (Meta.WebRtc && Meta.WebRtc.ServerAddress) ? Meta.WebRtc.ServerAddress[LocalPeerHash] : null;
+			if ( !PeerServerAddress )
+			{
+				Pop.Debug(`Peer ${PeerHash} has no server address for us (${LocalPeerHash})`);
+				return;
+			}
+			
+			if ( !PeerServerAddress.OfferDescription )
+			{
+				Pop.Warning(`Peer ${PeerHash} Invalid server address`,PeerServerAddress);
+				return;
+			}
+			
+			//	make sure we have a client to connect to this peer
+			if ( !PeerClients.hasOwnProperty(PeerHash) )
+			{
+				Pop.Debug(`Creating peer client to connect to ${PeerHash}`);
+				CreatePeerClient(PeerHash,PeerServerAddress);
+			}
+		}
+		
+		
+		function UpdatePeerConnections(LocalPlayerHash,Players)
+		{
+			for ( let Player of Players )
+			{
+				//	we CAN actualyl connect to ourselves for loopback
+				//if ( Player.Hash == LocalPlayerHash )
+				//	continue;
+				UpdatePeerServer( LocalPlayerHash, Player.Hash, Player.Meta );
+				UpdatePeerClient( LocalPlayerHash, Player.Hash, Player.Meta );
+			}	
+
+		}
+		
+		function GetPeerConnectionMeta()
 		{
 			const Meta = {};
+			Meta.ServerAddress = {};
+			Meta.ClientAddress = {};
+			
 			//	report server address if we're waiting for peer to connect
-			//	Meta.ServerAddress = PeerServers[PeerHash].GetAddress()
+			function AddServerMeta(PeerHash)
+			{
+				if ( !PeerServers.hasOwnProperty(PeerHash) )	
+					return;
+				const Server = PeerServers[PeerHash];
+				const ServerMeta = Server.GetAddress();
+				//if ( Server.IsConnected() )		return;	//	don't need meta if they're connected
+				if ( !ServerMeta )
+					return;
+
+				Meta.ServerAddress[PeerHash] = ServerMeta;
+			}
+			Object.keys(PeerServers).forEach(AddServerMeta);
+			
+			
+			
 			//	report client address if we're still waiting for them to join
-			//	Meta.ClientAddress = PeerClients[PeerHash].GetAddress()
+			function AddClientMeta(PeerHash)
+			{
+				if ( !PeerServers.hasOwnProperty(PeerHash) )	
+					return;
+				const Client = PeerClients[PeerHash];
+				const ClientMeta = Client.GetAddress();
+				//if ( Server.IsConnected() )		return;	//	don't need meta if they're connected
+				if ( !ClientMeta )
+					return;
+
+				Meta.ClientAddress[PeerHash] = ClientMeta;
+			}
+			Object.keys(PeerClients).forEach(AddClientMeta);
+			
 			return Meta;
 		}
 
@@ -338,15 +473,16 @@ let PeerClients = {};
 			if ( !String || String.length == 0 )
 				return;
 				
-			let SoundCount = 0;
+			let SendCount = 0;
 			const Data = String;
 			const Servers = Object.values(PeerServers);
 			function Send(Server)
 			{
 				try
 				{
-					Server.Send(Data);
-					SoundCount++;
+					const Peer = Server.GetPeers()[0];
+					Server.Send(Peer,Data);
+					SendCount++;
 				}
 				catch(e)
 				{
@@ -355,7 +491,7 @@ let PeerClients = {};
 			Servers.forEach(Send);
 			
 			//	nothing got sent
-			if ( SoundCount == 0 )
+			if ( SendCount == 0 )
 				OnChatString(`${String} <-- Not connected to anyone`);
 		}
 
@@ -386,15 +522,23 @@ let PeerClients = {};
 			//	return RTC metas
 			const Meta = {};
 			Meta.Name = GetLocalPlayerName();
+			
+			//	web rtc public meta to allow people to connect
+			Meta.WebRtc = GetPeerConnectionMeta();
+			
 			return Meta;
 		}
 		
-		function xxOnPlayerMetaChanged(NewPlayers)
+		function OnPlayerMetaChanged(NewPlayers)
 		{
 			if ( !PlayerWindow )
 				PlayerWindow = new TPlayerWindow( GetLocalPlayerName(), OnLocalNameChanged );
 
 			PlayerWindow.Update(NewPlayers);
+			
+			//	gr: I don't know what my own player hash is here
+			//	update our webrtc sockets
+			UpdatePeerConnections( NewPlayers.Meta.YourPlayerHash, NewPlayers.Meta.ActivePlayers );			
 		}
 		
 		//	called critical section in pop api
@@ -430,7 +574,7 @@ let PeerClients = {};
 				
 		async function Run(GetGameClass)
 		{
-			Bootup( GetGameClass, GetLocalPlayerMeta, xxOnPlayerMetaChanged );
+			Bootup( GetGameClass, GetLocalPlayerMeta, OnPlayerMetaChanged );
 		}
 		
 		PreventSleep();
