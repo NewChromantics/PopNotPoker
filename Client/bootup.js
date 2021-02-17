@@ -271,8 +271,15 @@ function MessageHandler(Message,SendReply,GetLocalPlayerMeta,OnPlayerMetaChanged
 	const Game = GetGame(Message);
 
 	//	update player meta
-	OnPlayerMetaChanged(Message);
-
+	try
+	{
+		OnPlayerMetaChanged(Message);
+	}
+	catch(e)
+	{
+		Pop.Error(`OnPlayerMetaChanged exception: ${e}`);
+	}
+	
 	//	update state
 	if ( Message.State )
 	{
