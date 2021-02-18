@@ -249,8 +249,9 @@ class LobbyWebSocketServer
 		Meta.DeletingPlayers = this.DeletingPlayers.map(GetPublicMeta);
 		Meta.DeletedPlayers = this.DeletedPlayers.map(GetPublicMeta);
 		
+		//	don't error if this peer has lost a player (after disconnection?)
 		const PeerPlayer = this.GetPlayer(Peer);
-		Meta.YourPlayerHash = PeerPlayer.Hash;
+		Meta.YourPlayerHash = PeerPlayer ? PeerPlayer.Hash : null;
 		
 		return Meta;
 	}
