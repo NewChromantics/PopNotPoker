@@ -3,7 +3,7 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "version": "0.0.12",
+  "version": "0.0.13",
   "main": "index.js",
   "dependencies": {
     "@newchromantics/popengine": "^0.0.40",
