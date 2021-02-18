@@ -302,6 +302,7 @@ const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaro
 let PlayerWindow = null;
 //	we need a server for each peer
 //	and a client to connect to each peer's server
+let EnableWebRtc = true;
 let PeerServers = {};	//	[peerhash]
 let PeerClients = {};	//	[peerhash]
 
@@ -314,6 +315,8 @@ let PeerClients = {};	//	[peerhash]
 		
 		function CreatePeerServer(PeerHash)
 		{
+			if ( !EnableWebRtc )
+				return;
 			async function Thread(Socket)
 			{
 				Pop.Debug(`${PeerHash} server waiting to connect`);
@@ -332,6 +335,8 @@ let PeerClients = {};	//	[peerhash]
 
 		function CreatePeerClient(PeerHash,ServerAddress)
 		{
+			if ( !EnableWebRtc )
+				return;
 			async function Thread(Socket)
 			{
 				Pop.Debug(`${PeerHash} client waiting to connect`);
@@ -531,6 +536,7 @@ let PeerClients = {};	//	[peerhash]
 		
 		function OnPlayerMetaChanged(NewPlayers)
 		{
+			Pop.Debug(`OnPlayerMetaChanged`,NewPlayers);
 			if ( !PlayerWindow )
 				PlayerWindow = new TPlayerWindow( GetLocalPlayerName(), OnLocalNameChanged );
 
