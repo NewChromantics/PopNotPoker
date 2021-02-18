@@ -392,9 +392,17 @@ const ProxyOptions =
 		port: 1234		
 	}
 }
+
+function OnProxyWebsocketRequest(proxyReq, req, socket, options, head) 
+{
+	console.log(`OnProxyWebsocketRequest; ${JSON.stringify(proxyReq,null,'\t')}`);
+	proxyReq.setHeader('Sec-WebSocket-Extensions','');
+	//proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+};
+
 const Proxy = httpProxy.createProxyServer(ProxyOptions);
 //httpProxy.createServer(ProxyOptions).listen(8000);
-
+Proxy.on('proxyReqWs',OnProxyWebsocketRequest);
 
 function OnHttpRequest(Request,Result)
 {
