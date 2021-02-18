@@ -339,7 +339,8 @@ class LobbyWebSocketServer
 	{
 		//	currently assuming always json
 		const Packet = JSON.parse(Data);
-		Pop.Debug(`OnPacket ${Peer};${Data}`);
+		const DataDebug = `${Data}`.substring(0,30);
+		Pop.Debug(`OnPacket Peer=${Peer};${DataDebug}`);
 		
 		if ( !Packet.Command )
 			throw `Packet has no command`;
