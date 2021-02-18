@@ -395,7 +395,9 @@ const ProxyOptions =
 
 function OnProxyWebsocketRequest(proxyReq, req, socket, options, head) 
 {
-	console.log(`OnProxyWebsocketRequest; ${JSON.stringify(proxyReq,null,'\t')}`);
+	//	on sloppy.io, this json.stringify causes TypeError: Converting circular structure to JSON
+	//	had this before with http proxy... doesn't happen locally with node, only inside docker.
+	//console.log(`OnProxyWebsocketRequest; ${JSON.stringify(proxyReq,null,'\t')}`);
 	proxyReq.setHeader('Sec-WebSocket-Extensions','');
 	//proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
 };
