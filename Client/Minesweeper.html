@@ -412,8 +412,8 @@ let PeerClients = {};	//	[peerhash]
 			for ( let Player of Players )
 			{
 				//	we CAN actualyl connect to ourselves for loopback
-				//if ( Player.Hash == LocalPlayerHash )
-				//	continue;
+				if ( Player.Hash == LocalPlayerHash )
+					continue;
 				UpdatePeerServer( LocalPlayerHash, Player.Hash, Player.Meta );
 				UpdatePeerClient( LocalPlayerHash, Player.Hash, Player.Meta );
 			}	
