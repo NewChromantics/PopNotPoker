@@ -139,7 +139,6 @@ class TBoggleGame extends TGame
 	{
 		//	calc player scores
 		const Scores = {};
-		Pop.Debug(`GetPlayerScores this.State.FoundWords=${this.State.FoundWords} this=${this}`);
 		for ( let [Word,PlayerHash] of Object.entries(this.State.FoundWords) )
 		{
 			const WordScore = this.Rules.GetWordScore( Word );
@@ -194,8 +193,12 @@ class TBoggleGame extends TGame
 			{
 				for ( let b=a+1;	b<MapSequence.length;	b++ )
 				{
-					const TileLetter = this.State.Map[a];
-					throw `Tile ${TileLetter} used more than once`;
+					const Indexa = MapSequence[a];
+					const Indexb = MapSequence[b];
+					if ( Indexa != Indexb )
+						continue;
+					const TileLetter = this.State.Map[Indexa];
+					throw `Tile ${TileLetter} used more than once (${Indexa} & ${Indexb})`;
 				}
 			}
 		}		
@@ -221,10 +224,11 @@ class TBoggleGame extends TGame
 	{
 		this.CheckMapSequence(MapSequence);
 		//	extract word
-		const Word = MapSequence.map( Index => this.State.Map[Index] );
+		const Word = MapSequence.map( Index => this.State.Map[Index] ).join('');
+		Pop.Debug(`HandleMapSequence word=${Word} (type: ${typeof Word}`);
 		
 		//	check word is valid
-		this.Rules.IsWord(Word);
+		this.Rules.IsValidWord(Word);
 		
 		//	check word hasnt been used
 		if ( this.State.FoundWords.hasOwnProperty(Word) )
@@ -249,7 +253,7 @@ class TBoggleGame extends TGame
 			//	todo: do a "round" so if everyone skips, we reset the board, or end game			
 			try
 			{
-				const LetterSequence = await this.WaitPlayerPickLetterSequence(Player,SendMoveAndWait,OnAction);
+				const LetterSequence = await this.WaitPlayerPickLetterSequenceOrSkip(Player,SendMoveAndWait,OnAction);
 				Pop.Debug(`${Player} LetterSequence=${LetterSequence}`);
 
 				OnStateChanged();
@@ -269,18 +273,20 @@ class TBoggleGame extends TGame
 		return Winner;
 	}
 	
-	async WaitPlayerPickLetterSequence(Player,SendMoveAndWait,OnAction)
+	async WaitPlayerPickLetterSequenceOrSkip(Player,SendMoveAndWait,OnAction)
 	{
-		function TryPickWordSequence(MapSequence)
+		function TryPickMapSequence(MapSequence0)
 		{
+			const MapSequence = Array.from(arguments);
+			Pop.Debug(`TryPickMapSequence ${JSON.stringify(MapSequence)}`);
 			//	validate input
 			{
 				//	remove trailing empty entries in the sequence (or disallow)
 				//	check all inputs are ints
 				if ( MapSequence.some( i => Number.isNaN(i) ) )
-					throw `Entry in map sequence ${MapSequence} is nan`;
-				if ( MapSequence.some( i => Number.isInteger(i) ) )
-					throw `Entry in map sequence ${MapSequence} is non integer`;
+					throw `An entry in map sequence ${MapSequence} is nan`;
+				if ( MapSequence.some( i => !Number.isInteger(i) ) )
+					throw `An entry in map sequence ${MapSequence} is non integer`;
 			}
 			
 			const Word = this.HandleMapSequence(MapSequence,Player);
@@ -298,6 +304,7 @@ class TBoggleGame extends TGame
 		
 		function SkipTurn()
 		{
+			Pop.Debug(`SkipTurn`);
 			//	report move
 			const ActionRender = {};
 			ActionRender.Player = Player;
@@ -318,11 +325,11 @@ class TBoggleGame extends TGame
 			Move.Actions.SkipTurn.Arguments = [];
 			
 			const MapIndexes = CreateArrayRange(0,this.State.Map.length);
-			Move.Actions.PickWordSequence = {};
-			Move.Actions.PickWordSequence.Lambda = TryPickWordSequence.bind(this);
+			Move.Actions.PickMapSequence = {};
+			Move.Actions.PickMapSequence.Lambda = TryPickMapSequence.bind(this);
 			//	gr: this array can essentially be WxH length, but just sending some args as a guide for debug UI
 			//		should at least send min-word length 
-			Move.Actions.PickWordSequence.Arguments = [MapIndexes,MapIndexes,MapIndexes,MapIndexes,MapIndexes,MapIndexes];
+			Move.Actions.PickMapSequence.Arguments = [MapIndexes,MapIndexes,MapIndexes,MapIndexes,MapIndexes,MapIndexes];
 		
 			//	if this throws, player cannot complete move
 			const Reply = await SendMoveAndWait(Player,Move);
@@ -330,6 +337,9 @@ class TBoggleGame extends TGame
 			//	execute reply
 			try
 			{
+				Pop.Debug(`Executing reply; Reply=${JSON.stringify(Reply)}`);
+				//	gr: add arguments if missing
+				Reply.ActionArguments = Reply.ActionArguments || [];
 				const MoveActionName = Reply.Action;
 				const Lambda = Move.Actions[MoveActionName].Lambda;
 				const Result = Lambda(...Reply.ActionArguments);
@@ -344,7 +354,7 @@ class TBoggleGame extends TGame
 				Pop.Debug(`Last move error; ${e} trying again`);
 				const Error = {};
 				Error.Player = Player;
-				Error.BadMove = e;
+				Error.BadMove = `${e}`;	//	catch typeerrors etc as strings otherwise they show as {}
 				OnAction(Error);
 				continue;
 			}
