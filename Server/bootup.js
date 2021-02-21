@@ -73,6 +73,7 @@ async function RunGameRoomLoop(Room,GameClass)
 		Pop.Debug(`New Game!`);
 
 		const Game = new GameClass();
+		Room.OnStartGame(Game.constructor.name);
 		//	for players still in room from a previous game, turn them back into waiting
 		//	players so they go through the same joining routine
 		Room.DeactivatePlayers();
@@ -205,11 +206,15 @@ class LobbyPlayer
 	}
 }
 
+//	todo: seperate socket from Lobby & Lobby I/O
 class LobbyWebSocketServer
 {
 	constructor(ListenPorts,OnListening)
 	{
-		this.GameHash = CreateRandomHash();
+		//	game hash is for the client to differentiate 
+		this.GameType = null;
+		this.GameHash = null;
+		
 		this.WaitingPlayers = [];	//	list of players who want to join
 		this.ActivePlayers = [];	//	players in the game LobbyPlayer
 		this.DeletingPlayers = [];	//	player refs that have been kicked off (but not yet acknowledged)
@@ -229,6 +234,13 @@ class LobbyWebSocketServer
 		this.WebSocketServerLoop(GetNextPort.bind(this),OnListening).then(Pop.Debug).catch(Pop.Debug);
 	}
 	
+	OnStartGame(GameType)
+	{
+		this.GameType = GameType;
+		this.GameHash = CreateRandomHash();
+	}
+	
+	
 	GetMeta(Peer)
 	{
 		function GetPublicMeta(Player)
@@ -243,7 +255,7 @@ class LobbyWebSocketServer
 		//	add player info
 		const Meta = {};
 		Meta.GameHash = this.GameHash;
-		//Meta.GameType = Game ? Game.constructor.name : null;	//	gr: this is never passed in atm
+		Meta.GameType = this.GameType;
 		Meta.ActivePlayers = this.ActivePlayers.map(GetPublicMeta);
 		Meta.WaitingPlayers = this.WaitingPlayers.map(GetPublicMeta);
 		Meta.DeletingPlayers = this.DeletingPlayers.map(GetPublicMeta);
