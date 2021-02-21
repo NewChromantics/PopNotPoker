@@ -42,6 +42,7 @@ Pop.Include('PopEngineCommon/PopApi.js');
 Pop.Include('Games/Game.js');
 Pop.Include('Games/Minesweeper.js');
 Pop.Include('Games/MealDeal.js');
+Pop.Include('Games/Boggle.js');
 //Pop.Include('Games/PickANumber.js');
 
 /*
@@ -771,9 +772,8 @@ function OnListening(Addresses)
 
 async function RunGameLoop()
 {
-	const GameClass = TMinesweeperGame;
-	//const Game = new TMealDealGame();
-	//const Game = new TMinesweeperGame();
+	//const GameClass = TMinesweeperGame;
+	const GameClass = TBoggleGame;
 
 	const Ports = [0];
 	const Room = new LobbyWebSocketServer(Ports,OnListening);
