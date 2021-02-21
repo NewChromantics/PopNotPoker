@@ -744,7 +744,7 @@ function StartClientHttpServer(ServerHost,ServerPort,ServerRoom)
 	}
 	
 	const HttpAddress = ClientHttpServer.GetAddress()[0].Address;
-	const Url = `http://${HttpAddress}/Minesweeper.html?Hostname=${ServerHost}&Port=${ServerPort}&Room=${ServerRoom}`;
+	const Url = `http://${HttpAddress}/Room.html?Hostname=${ServerHost}&Port=${ServerPort}&Room=${ServerRoom}`;
 	Pop.Debug(`Show url ${JSON.stringify(HttpAddress)}`);
 	Pop.Debug(Url);
 	Pop.ShowWebPage(Url);

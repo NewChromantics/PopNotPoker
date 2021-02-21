@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="win95.css" />
+<style>
+	/* disable scrolling on ios
+	 https://stackoverflow.com/a/57489918/355753
+	 */
+
+body
+{
+	background:		#0cc;
+}
+
+#ToggleDebugButton
+{
+	/* make sure is displayed on top */
+	position:	absolute;
+	z-index:	101;
+	background:	#eee;
+}
+
+.PacketDebug
+{
+	display:	none;
+	
+	position:	relative;
+	z-index:	100;
+}
+
+#MoveButtonContainer
+{
+	background:	#aaa;
+}
+
+#CurrentState
+{
+	background:	#aaf;
+}
+
+#LastAction
+{
+	background:	#ffa;
+}
+
+#Debug
+{
+	background:	#afa;
+}
+
+#Error
+{
+	background:	#faa;
+}
+
+#GameWindow
+{
+	opacity:	0.80;
+	position:	absolute;
+	left:		4vmin;
+	top:		4vmin;
+	right:		4vmin;
+	bottom:		4vmin;
+	xheight:		200px;
+	xwidth:		200px;
+}
+
+#Minesweeper
+{
+	width:	100%;
+	height:	100%;
+}
+
+#ChatWindow
+{
+	position:	absolute;
+	bottom:		0vh;
+	left:		0vw;
+	width:		100vw;
+}
+
+:root
+{
+	--Black:		#000;
+	--Yellow:		#fc1;
+	--GridSize:		6;
+	--BoardSize:	90vmin;
+	--SelectionColour0:	#1f8;
+	--SelectionColour1:	#1cf;
+	--SelectionColour2:	#18f;
+	--SelectionColour3:	#61f;
+	--SelectionColour4:	#f1d;
+	--SelectionColour5:	#f11;
+}
+
+#LetterBoard td
+{
+	--CellSize:		calc(var(--BoardSize)/var(--GridSize));
+	background:		var(--Yellow);
+	width:			var(--CellSize);
+	overflow:		hidden;
+	font-size:		calc( var(--CellSize) * 0.8);
+	font-family:	sans-serif;
+	font-weight:	bold;
+	text-transform:	uppercase;
+	text-align:		center;
+	color:			var(--Black);
+}
+
+/* any [other] */
+#LetterBoard td[selectionindex]		{	background:		var(--SelectionColour5);	}
+#LetterBoard td[selectionindex="0"]	{	background:		var(--SelectionColour0);	}
+#LetterBoard td[selectionindex="1"]	{	background:		var(--SelectionColour1);	}
+#LetterBoard td[selectionindex="2"]	{	background:		var(--SelectionColour2);	}
+#LetterBoard td[selectionindex="3"]	{	background:		var(--SelectionColour3);	}
+#LetterBoard td[selectionindex="4"]	{	background:		var(--SelectionColour4);	}
+ 
+#LetterBoard
+{
+	position:	absolute;
+	background:	var(--Black);
+	width:		var(--BoardSize);
+	height:		var(--BoardSize);
+	bottom:		0vh;
+	right:		0vw;
+}
+
+</style>
+	<script src='PopEngineCommon/PopWebApi.js'></script>
+	<script src='PopEngineCommon/PopApi.js'></script>
+</head>
+<body>
+	<h1>Boggle</h1>	
+	<div id=LastAction>Action</div>
+	<button id="SubmitButton">Submit Word</button> <button id="SkipButton">Skip</button>
+	
+		<table id="LetterBoard">
+			<tr>
+				<td >a</td><td>b</td><td>c</td>
+			</tr>
+			<tr>
+				<td>d</td><td>e</td><td>f</td>
+			</tr>
+			<tr>
+				<td>g</td><td>h</td><td>i</td>
+			</tr>
+		</table>
+	
+	
+	<script>
+	
+		async function ShowActionMessage(Message)
+		{
+			const ActionBox = document.querySelector('#LastAction');
+			ActionBox.innerText = Message;
+			await Pop.Yield(1000);
+		}
+	
+		let UserMapSelectionIndexes = [];
+	
+		function ResetSelection()
+		{
+			//	something has caused user to lose their selection
+			UserMapSelectionIndexes = [];
+			OnSelectionChanged();
+		}
+		
+		function GetSelectionIndex(MapIndex)
+		{
+			const SelectionIndex = UserMapSelectionIndexes.indexOf(MapIndex);
+			if ( SelectionIndex < 0 )
+				return null;
+			return SelectionIndex;
+		}
+		
+		function OnClickedCell(MapIndex)
+		{
+			//	todo: if not linked, reset selection
+			//	todo: if not linked, dont allow?
+
+			//	if already selected, remove
+			if ( GetSelectionIndex(MapIndex) !== null )
+			{
+				UserMapSelectionIndexes = UserMapSelectionIndexes.filter( i => i!=MapIndex );
+			}
+			else
+			{
+				UserMapSelectionIndexes.push(MapIndex);
+			}
+			OnSelectionChanged();
+		}
+		
+		function OnSelectionChanged()
+		{
+			//	update cell graphics
+			const Table = document.querySelector('#LetterBoard');
+			const MapWidth = Table.rows[0].cells.length;
+
+			function SetCell(x,y,Cell)
+			{
+				const Index = x + (y*MapWidth);
+				const SelectionIndex = GetSelectionIndex(Index);
+				SetCellSelected(Cell,SelectionIndex);
+			}
+			
+			for ( let r=0;	r<Table.rows.length;	r++ )
+			{
+				const Row = Table.rows[r];
+				for ( let c=0;	c<Row.cells.length;	c++ )
+				{
+					const Cell = Row.cells[c];
+					SetCell( c, r, Cell );
+				}
+			}
+		}
+		
+		function SetCellSelected(Cell,Index)
+		{
+			Pop.Debug(`SetCellSelected ${Cell}=${Index}`);
+			if ( Index === null || Index === false || Index === undefined )
+				Cell.removeAttribute('SelectionIndex');
+			else
+				Cell.setAttribute('SelectionIndex',Index);
+		}
+	
+	
+		function UpdateLetterBoard(Cells,Width)
+		{
+			function InitCell(x,y,Cell)
+			{
+				const Index = x + (y*Width);
+
+				function OnClicked()
+				{
+					OnClickedCell(Index);
+				}
+
+				const Value = Cells[Index];
+				Cell.innerText = Value;
+				Cell.onclick = OnClicked;
+			}
+		
+			const ColCount = Width;
+			const RowCount = Math.floor(Cells.length / Width);
+			const Table = document.querySelector('#LetterBoard');
+			//	reduce amount of DOM changes
+			let MakeNewTable = false;
+			if ( Table.rows.length != RowCount )
+				MakeNewTable = true;
+			for ( let Row of Table.rows )
+				if ( Row.cells.length != Width )
+					MakeNewTable = true;
+			
+			if ( MakeNewTable )
+			{
+				ResetSelection();
+				while ( Table.rows.length )
+					Table.deleteRow(0);
+				for ( let r=0;	r<RowCount;	r++ )
+				{
+					const Row = Table.insertRow();
+					for ( let c=0;	c<ColCount;	c++ )
+					{
+						const Cell = Row.insertCell();
+					}
+				}
+			}
+			
+			OnSelectionChanged();
+			//	update contents
+			{
+				for ( let r=0;	r<Table.rows.length;	r++ )
+				{
+					const Row = Table.rows[r];
+					for ( let c=0;	c<ColCount;	c++ )
+					{
+						const Cell = Row.cells[c];
+						InitCell( c, r, Cell );
+					}
+				}
+			}
+		}
+	
+		async function SetState(State)
+		{
+			//	update game board & scores
+			Pop.Debug(`SetState`,State);
+
+			//	make sure table is correct
+			UpdateLetterBoard(State.Map,State.MapWidth);
+		}
+		
+		//	action done by someone registered on server
+		async function ShowAction(Action)
+		{
+			await ShowActionMessage( JSON.stringify(Action) );
+		}
+	
+		function ShowElement(Element)
+		{
+			Element = document.querySelector(`#${Element}`);
+			Element.style.visibility = 'visible';
+		}
+	
+		function HideElement(Element)
+		{
+			Element = document.querySelector(`#${Element}`);
+			Element.style.visibility = 'hidden';
+		}
+	
+		function HideActionButtons()
+		{
+			HideElement('SkipButton');
+			HideElement('SubmitButton');
+		}
+	
+		async function WaitForButtonClick(ButtonId,ReturnValue=undefined)
+		{
+			if ( ReturnValue === undefined )
+				ReturnValue = ButtonId;
+			const Element = document.querySelector(`#${ButtonId}`);
+			const Promise = Pop.CreatePromise();
+			Element.onclick = Promise.Resolve;
+			ShowElement(ButtonId);
+			await Promise;
+			return ReturnValue;
+		}
+	
+		async function WaitForSkip()
+		{
+			//	show skip button
+			//	wait for it to be clicked
+			await WaitForButtonClick(`SkipButton`);
+			//	hide all others when done
+			HideActionButtons();
+			
+			return 'Skip';	//	just for debugging
+		}
+		
+		async function WaitForMapSequence()
+		{
+			//	let player select tiles
+			//	wait for player to click submit button
+			await WaitForButtonClick(`SubmitButton`);
+			//	return letter indexes
+			let SelectedIndexes = UserMapSelectionIndexes.slice();
+			//	hide other buttons
+			HideActionButtons();
+			
+			ResetSelection();
+			
+			return SelectedIndexes;
+		}
+	
+	</script>
+</body>
+
