@@ -141,8 +141,9 @@ function AllocGame(GameType)
 	Pop.Debug(`AllocGame(${GameType})`);
 	switch(GameType)
 	{
-		case undefined:
-		case null:	//	not currently reporting on server
+		case 'TBoggleGame':
+			return new TBoggleClient();
+
 		case 'TMinesweeperGame':
 			return new TMinesweeperClient();
 	}
