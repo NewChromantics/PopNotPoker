@@ -26,6 +26,7 @@ class TBoggleUi
 		this.Dom = this.Window.document;
 		
 		//	init page contents?
+		await this.Window.LoadAssets();		
 	}
 	
 	async SetState(State)

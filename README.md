@@ -71,3 +71,14 @@ To connect to it, we need a client, eg, a webpage. In theory you could just open
 - `python -m SimpleHTTPServer 8000` in `/Client` folder, then browse to `http://localhost:8000/?Hostname=localhost&Port=$PortFromServer` which will connect.
 - Even easier, pass in `HttpServer` to serve local files as an argument. This will auto-open the url with hostname & port
 	- `HttpServer=/Volumes/Code/PopNotPoker/Client`
+
+Local Client Development
+-----------------------
+Because of the modular implementation, the client (eg. html page) can be implemented/worked on with the live servers;
+
+- Start a http server to serve local pages
+	- `python -m SimpleHTTPServer 8001` in `Client/`
+- open a room on `http://not.poker`
+- Join that remote room `http://localhost:8001/Room.html?Room=XXXX&Hostname=sloppy.not.poker`
+- Every page reload is unfortunetly a new player join, until we have reconnecting user support
+

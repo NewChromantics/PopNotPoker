@@ -197,7 +197,7 @@ Pop.PromiseQueue = class
 const RoomUrlPattern = `^/([A-Z]{4})$`;
 const RoomSpawnDelayMs = 2*1000;
 
-const MacPopExe = '/Volumes/Code/PopEngine/build/Debug_JavascriptCore/PopEngine.app/Contents/MacOS/PopEngine';
+const MacPopExe = '/Users/graham/Library/Developer/Xcode/DerivedData/PopNotPoker-axkikboetujhvmazpnzhrnkbujim/Build/Products/Debug_JavascriptCore/PopEngine.app/Contents/MacOS/PopEngine';
 
 //	fallback to mac local test settings 
 //	if paths not provided by env vars (expect these to be set in dockerfile)

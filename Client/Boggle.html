@@ -9,7 +9,7 @@
 
 body
 {
-	background:		#0cc;
+	background:		#333;
 }
 
 #ToggleDebugButton
@@ -38,9 +38,21 @@ body
 	background:	#aaf;
 }
 
-#LastAction
+#Prompt
 {
-	background:	#ffa;
+	background:	var(--Yellow);
+	position:	absolute;
+	z-index:	4;
+	top:		50vh;
+	left:		50vw;
+	transform: translate(-50%, -50%);
+	padding:	3vmin;
+	border:		1px solid var(--Black);
+}
+#Prompt span
+{
+	display:	block;
+	margin-bottom:	3vmin;
 }
 
 #Debug
@@ -55,7 +67,7 @@ body
 
 #GameWindow
 {
-	opacity:	0.80;
+	xxxopacity:	0.80;
 	position:	absolute;
 	left:		4vmin;
 	top:		4vmin;
@@ -82,6 +94,8 @@ body
 :root
 {
 	--Black:		#000;
+	--CellDefault:	var(--Yellow);
+	--CellDisabled:	#dcc;
 	--Yellow:		#fc1;
 	--GridSize:		6;
 	--BoardSize:	90vmin;
@@ -96,7 +110,7 @@ body
 #LetterBoard td
 {
 	--CellSize:		calc(var(--BoardSize)/var(--GridSize));
-	background:		var(--Yellow);
+	background:		var(--CellDefault);
 	width:			var(--CellSize);
 	overflow:		hidden;
 	font-size:		calc( var(--CellSize) * 0.8);
@@ -131,7 +145,11 @@ body
 </head>
 <body>
 	<h1>Boggle</h1>	
-	<div id=LastAction>Action</div>
+	<div id=Prompt>
+		<span>Prompt Here</span>
+		<button id="PromptButton">Okay</button>
+	</div>
+	
 	<button id="SubmitButton">Submit Word</button> <button id="SkipButton">Skip</button>
 	
 		<table id="LetterBoard">
@@ -149,15 +167,78 @@ body
 	
 	<script>
 	
-		async function ShowActionMessage(Message)
+	
+		let PopCardsModule;
+		
+		async function LoadAssets()
 		{
-			const ActionBox = document.querySelector('#LastAction');
-			ActionBox.innerText = Message;
-			await Pop.Yield(1000);
+			PopCardsModule = await import('./PopCards.js');
+			
+			await ShowActionMessage('Welcome to boggle!','ok');
+		}
+	
+	
+		//	if WaitFor is a string, we wait for a button press with that label
+		//	if its a number, we yield for that time
+		async function ShowActionMessage(Message,WaitFor)
+		{
+			const ActionBox = document.querySelector('#Prompt');
+			const ActionText = document.querySelector('#Prompt span');
+			const ActionButton = document.querySelector('#Prompt button');
+			ActionText.innerText = Message;
+			
+			let WaitPromise;
+			
+			if ( typeof WaitFor == 'string' )
+			{
+				WaitPromise = WaitForButtonClick(ActionButton);
+				ActionButton.innerText = WaitFor;
+			}
+			else 
+			{
+				if ( isNaN(WaitFor) )
+					WaitFor = 3000;
+				WaitPromise = Pop.Yield(WaitFor);
+				HideElement(ActionButton);
+			}
+			
+			ShowElement(ActionBox);
+			const Result = await WaitPromise;
+			
+			Pop.Debug(`Action message clicked`);
+			HideElement(ActionBox);
+			HideElement(ActionButton);
+			
+			return Result;
 		}
 	
 		let UserMapSelectionIndexes = [];
+		let UserMapSelectionEnabled = false;
 	
+		function EnableUserSelection(Enable=true)
+		{
+			//	maybe push&pop user's selection here
+			UserMapSelectionEnabled = Enable;
+			
+			const CellColour = Enable ? 'var(--Yellow)' : 'var(--CellDisabled)';
+			document.documentElement.style.setProperty('--CellDefault', CellColour);
+		}
+		
+		async function ShowSelectionSequence(MapSequence)
+		{
+			EnableUserSelection(false);
+			ResetSelection();
+			await Pop.Yield(500);
+			for ( let MapIndex of MapSequence )
+			{
+				//	gr: this may need to ignore rules and just force it
+				await OnClickedCell(MapIndex);
+				await Pop.Yield(500);
+			}
+			await Pop.Yield(2000);
+			ResetSelection();
+		}
+			
 		function ResetSelection()
 		{
 			//	something has caused user to lose their selection
@@ -232,6 +313,11 @@ body
 
 				function OnClicked()
 				{
+					if ( !UserMapSelectionEnabled )
+					{
+						Pop.Warning(`User click whilst disabled`);
+						return;
+					}
 					OnClickedCell(Index);
 				}
 
@@ -289,22 +375,54 @@ body
 			//	make sure table is correct
 			UpdateLetterBoard(State.Map,State.MapWidth);
 		}
-		
+				
 		//	action done by someone registered on server
 		async function ShowAction(Action)
 		{
-			await ShowActionMessage( JSON.stringify(Action) );
+			//	gr: need to catch when this is a message for this player
+			if ( Action.BadMove )
+			{
+				const Message = `Try Again: ${Action.BadMove}`;
+				await ShowActionMessage(Message,'ok');
+			}
+			else if ( Action.MapSequence )
+			{
+				//	someone played a word
+				await ShowSelectionSequence(Action.MapSequence);
+			}
+			else
+			{
+				await ShowActionMessage( JSON.stringify(Action), 4000 );
+			}
 		}
 	
-		function ShowElement(Element)
+		function GetElement(ElementOrSelector)
 		{
-			Element = document.querySelector(`#${Element}`);
+			let Element = ElementOrSelector;
+			if ( typeof ElementOrSelector != 'string' )
+				return Element;
+			
+			Element = document.querySelector(ElementOrSelector);
+			if ( Element )
+				return Element;
+			
+			//	try as id
+			Element = document.querySelector(`#${ElementOrSelector}`);
+			if ( Element )
+				return Element;
+				
+			throw `Failed to find element matching ${ElementOrSelector}`;
+		}
+					
+		function ShowElement(ElementOrSelector)
+		{
+			const Element = GetElement(ElementOrSelector);
 			Element.style.visibility = 'visible';
 		}
 	
-		function HideElement(Element)
+		function HideElement(ElementOrSelector)
 		{
-			Element = document.querySelector(`#${Element}`);
+			const Element = GetElement(ElementOrSelector);
 			Element.style.visibility = 'hidden';
 		}
 	
@@ -314,14 +432,14 @@ body
 			HideElement('SubmitButton');
 		}
 	
-		async function WaitForButtonClick(ButtonId,ReturnValue=undefined)
+		async function WaitForButtonClick(ButtonSelector,ReturnValue=undefined)
 		{
 			if ( ReturnValue === undefined )
-				ReturnValue = ButtonId;
-			const Element = document.querySelector(`#${ButtonId}`);
+				ReturnValue = ButtonSelector;
+			const Element = GetElement(ButtonSelector);
 			const Promise = Pop.CreatePromise();
 			Element.onclick = Promise.Resolve;
-			ShowElement(ButtonId);
+			ShowElement(ButtonSelector);
 			await Promise;
 			return ReturnValue;
 		}
@@ -330,7 +448,7 @@ body
 		{
 			//	show skip button
 			//	wait for it to be clicked
-			await WaitForButtonClick(`SkipButton`);
+			await WaitForButtonClick(`#SkipButton`);
 			//	hide all others when done
 			HideActionButtons();
 			
@@ -340,8 +458,10 @@ body
 		async function WaitForMapSequence()
 		{
 			//	let player select tiles
+			EnableUserSelection();
+			
 			//	wait for player to click submit button
-			await WaitForButtonClick(`SubmitButton`);
+			await WaitForButtonClick(`#SubmitButton`);
 			//	return letter indexes
 			let SelectedIndexes = UserMapSelectionIndexes.slice();
 			//	hide other buttons
