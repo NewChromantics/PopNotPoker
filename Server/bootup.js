@@ -43,6 +43,7 @@ Pop.Include('Games/Game.js');
 Pop.Include('Games/Minesweeper.js');
 Pop.Include('Games/MealDeal.js');
 Pop.Include('Games/Boggle.js');
+Pop.Include('Games/Looter.js');
 //Pop.Include('Games/PickANumber.js');
 
 /*
@@ -326,6 +327,10 @@ class LobbyWebSocketServer
 				{
 					Pop.Debug(`Socket waiting for next message`);
 					const Packet = await Socket.WaitForMessage();
+					//Pop.Debug(`Socket got packet: ${JSON.stringify(Packet)}`);
+					const Peers = Socket.GetPeers();
+					//Pop.Debug(`Socket all peers: ${Peers}`);
+					
 					//	handle join request
 					try
 					{
@@ -774,7 +779,8 @@ function OnListening(Addresses)
 async function RunGameLoop()
 {
 	//const GameClass = TMinesweeperGame;
-	const GameClass = TBoggleGame;
+	//const GameClass = TBoggleGame;
+	const GameClass = TLooterGame;
 
 	const Ports = [0];
 	const Room = new LobbyWebSocketServer(Ports,OnListening);
