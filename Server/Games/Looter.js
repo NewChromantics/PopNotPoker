@@ -14,6 +14,12 @@ RewardsWeighted.Coins10 = 1;
 const Move_Stay = 'Stay';
 const Move_Flee = 'Flee';
 
+function IsHazard(Card)
+{
+	const HazardNames = Object.keys(HazardsWeighted);
+	return HazardNames.includes(Card);
+}
+
 function GetCardValue(Card)
 {
 	switch(Card)
@@ -82,7 +88,7 @@ class TLooterGame extends TGame
 		super(...arguments);
 		
 		this.Rules = new TLooterRules();
-		this.State = this.InitState();
+		this.State = {};
 	}
 	
 	InitState()
@@ -93,6 +99,11 @@ class TLooterGame extends TGame
 		State.Path = [];	//	TPathEntrys
 		
 		State.Players = {};	//	playerhash = TPlayerEntry
+		
+		for ( let Player of this.Players )
+		{
+			State.Players[Player] = new TPlayerEntry();
+		}
 		
 		return State;
 	}
@@ -107,6 +118,8 @@ class TLooterGame extends TGame
 		
 	async InitNewPlayer(PlayerRef)
 	{
+		throw `InitNewPlayer not used any more?`;
+		//this.State.Players[PlayerRef] = new TPlayerEntry();
 	}
 	
 	HasEnoughPlayers()
@@ -148,7 +161,9 @@ class TLooterGame extends TGame
 	{
 		function HandleStayOrFlee(StayOrFlee)
 		{
-			Pop.Debug(`StayOrFlee=${StayOrFlee}`);
+			Pop.Debug(`HandleStayOrFlee(${StayOrFlee})`);
+			if ( StayOrFlee != Move_Stay && StayOrFlee != Move_Flee )
+				throw `StayOrFlee(${StayOrFlee}) not flee or stay`;
 			return StayOrFlee;
 		}
 		
@@ -199,7 +214,7 @@ class TLooterGame extends TGame
 		for ( let PlayerHash of Object.keys(this.State.Players) )
 		{
 			const PlayerState = this.State.Players[PlayerHash];
-			if ( !Player.Playing )
+			if ( !PlayerState.Playing )
 				continue;
 			
 			ActivePlayers.push(PlayerHash);
@@ -217,10 +232,10 @@ class TLooterGame extends TGame
 		const PlayerHashs = this.GetActivePlayerHashs();
 		let PlayerChoicePromises = {};	//	[PlayerHash]
 			
-		for ( let PlayerHash in PlayerHashs )
+		for ( let PlayerHash of PlayerHashs )
 		{
 			const PlayerChoicePromise = this.WaitForPlayerStayOrFlee(PlayerHash,SendMoveAndWait);
-			PlayerHashs[PlayerHash] = PlayerChoicePromise;
+			PlayerChoicePromises[PlayerHash] = PlayerChoicePromise;
 		}
 			
 		//	wait for all to respond
@@ -228,34 +243,60 @@ class TLooterGame extends TGame
 			
 		//	make a list of anyone who leaves
 		let FleeingPlayers = [];
-		for ( let PlayerHash in PlayerHashs )
+		for ( let PlayerHash of PlayerHashs )
 		{
 			let StayOrFlee = Move_Flee;
 			const StayOrFleePromise = PlayerChoicePromises[PlayerHash];
 			try
 			{
-				StayOrFlee = await StayOrFleePromise();
+				StayOrFlee = await StayOrFleePromise;
+				Pop.Debug(`choice was ${StayOrFlee} (promise=${StayOrFleePromise}) PlayerChoicePromises=${JSON.stringify(PlayerChoicePromises)}`);
 			}
 			catch(e)
 			{
-				Pop.Debug(`Player ${PlayerHash} failed to complete move, defaulting to flee`);
+				Pop.Debug(`Player ${PlayerHash} failed to complete move (${e}), defaulting to flee`);
 			}
 			if ( StayOrFlee == Move_Flee )
 				FleeingPlayers.push(PlayerHash);
 			
 			const ActionRender = {};
 			ActionRender.Player = PlayerHash;
-			ActionRender.Debug = `Player ${Player} chose ${StayOrFlee}`;
+			ActionRender.Debug = `Player ${PlayerHash} chose ${StayOrFlee}`;
 			ActionRender.StayOrFlee = StayOrFlee;
 			OnAction(ActionRender);
 		}
 		return FleeingPlayers;
 	}
 	
+	GetPathCoinCount()
+	{
+		//	count all the coins uncollected on the path
+		let PathCoins = 0;
+		for ( let PathEntry of this.State.Path )
+		{
+			PathCoins += PathEntry.Coins;
+		}
+		return PathCoins;
+	}
+	
+	RemoveCoinsFromPath(CoinCount)
+	{
+		//	from oldest to newest, remove leftover coins (they're being picked up)
+		let PathCoins = 0;
+		for ( let PathEntry of this.State.Path )
+		{
+			let Remove = Math.min( CoinCount, PathEntry.Coins );
+			CoinCount -= Remove;
+			PathEntry.Coins -= Remove;
+		}
+	}	
 	
 	async RunGame(SendMoveAndWait,OnStateChanged,OnAction)
 	{
 		const Deck = CreateDeck();
+		Pop.Debug(`Deck=${Deck}`);
+
+		this.State = this.InitState();
 		
 		while ( !this.GetWinner() )
 		{
@@ -270,7 +311,6 @@ class TLooterGame extends TGame
 			
 			//	check in case everyone has left
 			{
-				Pop.Debug(`RunGame GetActivePlayerHashs`);
 				const ActivePlayers = this.GetActivePlayerHashs();
 				if ( ActivePlayers.length == 0 )
 					break;
@@ -305,7 +345,10 @@ class TLooterGame extends TGame
 				//	card value is now divisible by players
 				//	give 0,1,2 etc to each
 				for ( let Player of ActivePlayers )
+				{
+					Pop.Debug(`Dividing up ${CoinEach} ${Player}`);
 					this.State.Players[Player].Coins += CoinEach;
+				}
 				OnStateChanged();
 			}
 				
@@ -322,6 +365,8 @@ class TLooterGame extends TGame
 				//	give coins to each player and let them leave
 				for ( let Player of FleeingPlayers )
 				{
+					Pop.Debug(`Fleeing player ${Player}`);
+				
 					this.State.Players[Player].Coins += PathCoinEach;
 					this.State.Players[Player].Playing = false;
 					this.RemoveCoinsFromPath(PathCoinEach);
@@ -330,6 +375,8 @@ class TLooterGame extends TGame
 			}
 			
 		}
+		
+		Pop.Debug(`Game finished`);
 		
 		const Winner = this.GetWinner();
 		return Winner;
@@ -341,13 +388,17 @@ class TLooterGame extends TGame
 	{
 		//	whilst players are playing, there's no winner
 		const ActivePlayers = this.GetActivePlayerHashs();
+		Pop.Debug(`GetWinner activeplayers=${ActivePlayers}`);
 		if ( ActivePlayers.length > 0 )
+			return false;
+	
+		//	not got any players yet!
+		if ( !this.HasEnoughPlayers() )
 			return false;
 	
 		//	count scores
 		let BestScore = 0;
 		let BestPlayers = [];
-		Pop.Debug('GetWinner');
 		for ( let Player of Object.keys(this.State.Players) )
 		{
 			let Score = this.State.Players[Player].Coins;
