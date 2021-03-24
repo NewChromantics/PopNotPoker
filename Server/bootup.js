@@ -741,13 +741,14 @@ function StartClientHttpServer(ServerHost,ServerPort,ServerRoom)
 	{
 		const ServePath = Args.HttpServer;
 		ClientHttpServer = CreateClientHttpServer(ServePath);
-	}
 	
-	const HttpAddress = ClientHttpServer.GetAddress()[0].Address;
-	const Url = `http://${HttpAddress}/Room.html?Hostname=${ServerHost}&Port=${ServerPort}&Room=${ServerRoom}`;
-	Pop.Debug(`Show url ${JSON.stringify(HttpAddress)}`);
-	Pop.Debug(Url);
-	Pop.ShowWebPage(Url);
+		//	don't keep popping this up in case we get stuck in a loop	
+		const HttpAddress = ClientHttpServer.GetAddress()[0].Address;
+		const Url = `http://${HttpAddress}/Room.html?Hostname=${ServerHost}&Port=${ServerPort}&Room=${ServerRoom}`;
+		Pop.Debug(`Show url ${JSON.stringify(HttpAddress)}`);
+		Pop.Debug(Url);
+		Pop.ShowWebPage(Url);
+	}
 }
 
 
