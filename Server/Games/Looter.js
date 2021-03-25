@@ -175,7 +175,7 @@ class TLooterGame extends TGame
 			
 			Move.Actions.StayOrFlee = {};
 			Move.Actions.StayOrFlee.Lambda = HandleStayOrFlee.bind(this);
-			Move.Actions.StayOrFlee.Arguments = [Move_Stay,Move_Flee];
+			Move.Actions.StayOrFlee.Arguments = [[Move_Stay,Move_Flee]];
 			
 			//	if this throws, player cannot complete move
 			const Reply = await SendMoveAndWait(Player,Move);
@@ -313,7 +313,10 @@ class TLooterGame extends TGame
 			{
 				const ActivePlayers = this.GetActivePlayerHashs();
 				if ( ActivePlayers.length == 0 )
+				{
+					Pop.Debug(`No active players, ending game`);
 					break;
+				}
 			}
 			
 			//	reveal card on path
@@ -391,10 +394,15 @@ class TLooterGame extends TGame
 		Pop.Debug(`GetWinner activeplayers=${ActivePlayers}`);
 		if ( ActivePlayers.length > 0 )
 			return false;
-	
-		//	not got any players yet!
+
+/*	
+		//	not got any players yet! not sure how we get here
 		if ( !this.HasEnoughPlayers() )
+		{
+			Pop.Debug(`GetWinner with !HasEnoughPlayers shouldn't reach here?`);
 			return false;
+		}
+		*/
 	
 		//	count scores
 		let BestScore = 0;

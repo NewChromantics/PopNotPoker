@@ -224,8 +224,14 @@ function OnMoveRequest(Move,SendReply)
 		}
 		Button.onclick = OnClick;
 	}
-	Object.keys(Move.Actions).forEach(AddActionButton);
-	
+	try
+	{
+		Object.keys(Move.Actions).forEach(AddActionButton);
+	}
+	catch(e)
+	{
+		Pop.Warning(`Error setting up action UI: ${e}`);
+	}
 	ErrorGui.SetValue(Move.LastMoveError||"");
 }
 

@@ -84,6 +84,10 @@ async function RunGameRoomLoop(Room,GameClass)
 		//	gr: this func could call the lambda and retry automatically
 		async function SendMoveAndWait(Player,Move)
 		{
+			//	gr: todo: verify Move's Actions here
+			//	need;	.Lambda
+			//			.Arguments = array of arrays(options) for each param to lambda
+			//	eg;		.Lambda = Pick(Number,Animal) .Arguments = [ [0,1,2], [cat,dog] ]
 			const Reply = await Room.SendToPlayerAndWaitForReply('Move', Player, Move );
 			return Reply;
 		}
@@ -120,7 +124,7 @@ async function RunGameRoomLoop(Room,GameClass)
 		const GameEndPromise = Game.RunGame( SendMoveAndWait, OnStateChanged, OnAction );
 		
 		//	wait for the game to end, or players to join, or all players to leave and abort game
-		let EndOfGameWinners = null;
+		let EndOfGameWinners = undefined;
 		while( !EndOfGameWinners )
 		{
 			//	wait for something to happen, if the return of the promise is
@@ -404,7 +408,10 @@ class LobbyWebSocketServer
 	
 	async WaitForPlayerJoinRequest()
 	{
-		return this.PlayerJoinRequestPromiseQueue.WaitForNext();
+		//	gr: this function is expected to return undefined
+		//	just use the queue to wake
+		await this.PlayerJoinRequestPromiseQueue.WaitForNext();
+		return;
 	}
 	
 	SendToPeer(Peer,Message)
