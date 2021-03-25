@@ -143,7 +143,7 @@ class TLooterGame extends TGame
 		return false;
 	}
 	
-	ActivePlayersLose()
+	ActivePlayersLoseCoins()
 	{
 		//	2x hazard on path, all active players flee and lose their coins!
 		for ( let Player of Object.values(this.State.Players) )
@@ -156,6 +156,17 @@ class TLooterGame extends TGame
 		}
 	}
 	
+	SetAllPlayersNotActive()
+	{
+		for ( let Player of Object.values(this.State.Players) )
+		{
+			if ( !Player.Playing )
+				continue;
+			
+			Player.Playing = false;
+		}
+	}
+
 	
 	async WaitForPlayerStayOrFlee(Player,SendMoveAndWait)
 	{
@@ -209,7 +220,6 @@ class TLooterGame extends TGame
 	
 	GetActivePlayerHashs()
 	{
-		Pop.Debug('GetActivePlayerHashs');
 		let ActivePlayers = [];
 		for ( let PlayerHash of Object.keys(this.State.Players) )
 		{
@@ -307,7 +317,10 @@ class TLooterGame extends TGame
 			//	need to make all players split the gold
 			//	gr: does this ever happen? must hit 2 hazards before this does
 			if ( Deck.length == 0 )
+			{
+				Pop.Debug(`Deck empty`);
 				break;
+			}
 			
 			//	check in case everyone has left
 			{
@@ -328,6 +341,7 @@ class TLooterGame extends TGame
 			//	if we have 2 of the same hazard, the game ends
 			if ( this.PathHasTwoHazards() )
 			{
+				Pop.Debug(`Two Hazards!`);
 				//	players who havent left, lose their coins
 				this.ActivePlayersLoseCoins();
 				OnStateChanged();
@@ -349,7 +363,7 @@ class TLooterGame extends TGame
 				//	give 0,1,2 etc to each
 				for ( let Player of ActivePlayers )
 				{
-					Pop.Debug(`Dividing up ${CoinEach} ${Player}`);
+					//Pop.Debug(`Dividing up ${CoinEach} ${Player}`);
 					this.State.Players[Player].Coins += CoinEach;
 				}
 				OnStateChanged();
@@ -368,7 +382,7 @@ class TLooterGame extends TGame
 				//	give coins to each player and let them leave
 				for ( let Player of FleeingPlayers )
 				{
-					Pop.Debug(`Fleeing player ${Player}`);
+					//Pop.Debug(`Fleeing player ${Player}`);
 				
 					this.State.Players[Player].Coins += PathCoinEach;
 					this.State.Players[Player].Playing = false;
@@ -379,7 +393,8 @@ class TLooterGame extends TGame
 			
 		}
 		
-		Pop.Debug(`Game finished`);
+		Pop.Debug(`Game finished, forcing all players to be not-active`);
+		this.SetAllPlayersNotActive();
 		
 		const Winner = this.GetWinner();
 		return Winner;
@@ -391,10 +406,11 @@ class TLooterGame extends TGame
 	{
 		//	whilst players are playing, there's no winner
 		const ActivePlayers = this.GetActivePlayerHashs();
-		Pop.Debug(`GetWinner activeplayers=${ActivePlayers}`);
 		if ( ActivePlayers.length > 0 )
+		{
+			Pop.Debug(`GetWinner activeplayers=${ActivePlayers}`);
 			return false;
-
+		}
 /*	
 		//	not got any players yet! not sure how we get here
 		if ( !this.HasEnoughPlayers() )
