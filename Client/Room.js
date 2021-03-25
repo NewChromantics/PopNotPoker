@@ -1,9 +1,35 @@
+import TLooterClient from './Looter/LooterClient.js'
+import TBoggleClient from './Boggle/BoggleClient.js'
+import TMinesweeperClient from './Minesweeper/MinesweeperClient.js'
+/*
+	<script src='PopEngineCommon/PopWebApi.js'></script>
+	<script src='PopEngineCommon/PopApi.js'></script>
+	<script src='PopEngineCommon/PopWebOpenglApi.js'></script>
+	<script src='PopEngineCommon/PopWebGuiApi.js'></script>
+	<script src='PopEngineCommon/PopWebImageApi.js'></script>
+	<script src='PopEngineCommon/PopWebSocketApi.js'></script>
+	<script src='PopEngineCommon/PopWebRtcApi.js'></script>
+	<script src='PopEngineCommon/PopWebXrApi.js'></script>
 
+	<!-- engine normally loads these in-code -->
+	<script src='PopEngineCommon/PopMath.js'></script>
+	<script src='PopEngineCommon/PopCamera.js'></script>
+	<script src='PopEngineCommon/PopShaderCache.js'></script>
+	<script src='PopEngineCommon/ParamsWindow.js'></script>
+	<script src='bootup.js'></script>
+	<script src='AssetManager.js'></script>
+		<script src='Minesweeper/MinesweeperClient.js'></script>
+	<script src='Boggle/BoggleClient.js'></script>
+	<script src='Looter/LooterClient.js'></script>
+	*/
+	
+	
 //	generic/debug ui
-const StateGui = new Pop.Gui.Label('CurrentState');
-const ActionGui = new Pop.Gui.Label('LastAction');
-const DebugGui = new Pop.Gui.Label('Debug');
-const ErrorGui = new Pop.Gui.Label('Error');
+const Window = null;
+const StateGui = new Pop.Gui.Label(Window,'CurrentState');
+const ActionGui = new Pop.Gui.Label(Window,'LastAction');
+const DebugGui = new Pop.Gui.Label(Window,'Debug');
+const ErrorGui = new Pop.Gui.Label(Window,'Error');
 
 
 
@@ -146,6 +172,9 @@ function AllocGame(GameType)
 
 		case 'TMinesweeperGame':
 			return new TMinesweeperClient();
+			
+		case 'TLooterGame':
+			return new TLooterClient();
 	}
 	return new TDebugClient();
 	throw `Unknown game type ${GameType}`;
@@ -177,19 +206,11 @@ function ClearMoveActionButtons()
 		ButtonContainer.removeChild(ButtonContainer.lastChild);
 }
 
-function OnMoveRequest(Move,SendReply)
+function OnMoveRequest(Move,SendReply,SendReplyAction)
 {
 	ClearMoveActionButtons();
 	const ButtonContainer = document.querySelector('#MoveButtonContainer');
 
-	function SendReplyAction(ActionName,Arguments)
-	{
-		const Reply = {};
-		Reply.Action = ActionName;
-		Reply.ActionArguments = Arguments;
-		SendReply(Reply);
-	}
-	
 	//	add button for each action choice
 	function AddActionButton(ActionName)
 	{
@@ -220,7 +241,7 @@ function OnMoveRequest(Move,SendReply)
 		function OnClick()
 		{
 			const ArgumentValues = ArgumentInputs.map( i => i.value );
-			SendReplyAction(ActionName,ArgumentValues);
+			SendReplyAction(ActionName,...ArgumentValues);
 		}
 		Button.onclick = OnClick;
 	}
@@ -306,14 +327,15 @@ function MessageHandler(Message,SendReply,GetLocalPlayerMeta,OnPlayerMetaChanged
 	//	gr: should we ditch .command?
 	if ( Message.Command == 'Move' )
 	{
-		OnMoveRequest(Message.Move,SendReplyWithHash);
-		function SendReplyAction(ActionName,Arguments)
+		function SendReplyAction(ActionName,Argument0,Argument1,etc)
 		{
 			const Reply = {};
 			Reply.Action = ActionName;
-			Reply.ActionArguments = Arguments;
+			Reply.ActionArguments = Array.from(arguments).slice(1);
 			SendReplyWithHash(Reply);
 		}
+
+		OnMoveRequest(Message.Move,SendReplyWithHash,SendReplyAction);
 		return Game.OnMoveRequest(Message.Move,SendReplyAction);
 	}
 	else if ( Message.Command )
@@ -411,13 +433,32 @@ function GetNextAddress()
 }
 
 
-function Bootup(GetGameClass,GetLocalPlayerMeta,OnPlayerMetaChanged)
+export default async function RoomBootup(GetLocalPlayerName,OnPlayerMetaChanged)
 {
+	let LastLocalMeta = null;
+	function DoGetLocalPlayerMeta()
+	{
+		const Meta = GetLocalPlayerMeta(GetLocalPlayerName);
+
+		//	return null to skip reporting changes
+		const MetaChanged = JSON.stringify(Meta) != JSON.stringify(LastLocalMeta);
+		LastLocalMeta = Meta;
+	
+		return MetaChanged ? Meta : null;
+	}
+	
+	
 	function OnMessage(Message,SendReply)
 	{
-		MessageHandler( Message, SendReply, GetLocalPlayerMeta, OnPlayerMetaChanged );
+		MessageHandler( Message, SendReply, DoGetLocalPlayerMeta, OnPlayerMetaChanged );
 	}
 
 	ConnectToServerLoop(GetNextAddress,OnMessage).catch(Pop.Debug);
 }
 
+
+
+
+let PlayerWindow = null;
+
+	

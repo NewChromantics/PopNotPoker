@@ -10,7 +10,7 @@ class TDictionary
 	constructor()
 	{
 		//	load dictionary json
-		const DictionaryJsonString = Pop.LoadFileAsString('Games/Boggle/Dictionary_EnglishUk.json');
+		const DictionaryJsonString = Pop.LoadFileAsString('Boggle/Dictionary_EnglishUk.json');
 		const DictionaryJson = JSON.parse(DictionaryJsonString);
 		this.Dictionary = DictionaryJson;
 	}

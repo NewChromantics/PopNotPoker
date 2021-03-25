@@ -22,7 +22,7 @@ function LoadFontTexture(RenderTarget)
 				return 128;
 		}
 	}
-	const FilenamePrefix = 'Games/Minesweeper/';
+	const FilenamePrefix = 'Minesweeper/';
 	const FontChars = Pop.LoadFileAsString(FilenamePrefix+'Font.txt').split('');
 	let FontPixels = FontChars.map( FontCharToPixel );
 	FontPixels = FontPixels.filter( x => x!==undefined );
@@ -82,7 +82,7 @@ class TMinesweeperWindow
 	
 	async LoadAssets()
 	{
-		const FilenamePrefix = 'Games/Minesweeper/';
+		const FilenamePrefix = 'Minesweeper/';
 		//	load shaders etc
 		await Pop.LoadFileAsStringAsync(FilenamePrefix+'Quad.vert.glsl');
 		await Pop.LoadFileAsStringAsync(FilenamePrefix+'Blit.frag.glsl');
@@ -254,7 +254,7 @@ class TMinesweeperWindow
 }
 
 
-class TMinesweeperClient
+export default class TMinesweeperClient
 {
 	constructor()
 	{

@@ -168,7 +168,7 @@ class TLooterGame extends TGame
 	}
 
 	
-	async WaitForPlayerStayOrFlee(Player,SendMoveAndWait)
+	async WaitForPlayerStayOrFlee(Player,SendMoveAndWait,OnAction)
 	{
 		function HandleStayOrFlee(StayOrFlee)
 		{
@@ -244,7 +244,7 @@ class TLooterGame extends TGame
 			
 		for ( let PlayerHash of PlayerHashs )
 		{
-			const PlayerChoicePromise = this.WaitForPlayerStayOrFlee(PlayerHash,SendMoveAndWait);
+			const PlayerChoicePromise = this.WaitForPlayerStayOrFlee(PlayerHash,SendMoveAndWait,OnAction);
 			PlayerChoicePromises[PlayerHash] = PlayerChoicePromise;
 		}
 			

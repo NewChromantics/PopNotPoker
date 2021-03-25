@@ -54,7 +54,7 @@ class TBoggleUi
 	
 }
 
-class TBoggleClient
+export default class TBoggleClient
 {
 	constructor()
 	{
@@ -125,7 +125,7 @@ class TBoggleClient
 			{
 				const MapSequence = await this.Ui.WaitForMapSequence();
 				Pop.Debug(`Got MapSequence from ui ${MapSequence}`);
-				const Action = ['PickMapSequence',MapSequence];
+				const Action = ['PickMapSequence',...MapSequence];
 				return Action;
 			}
 

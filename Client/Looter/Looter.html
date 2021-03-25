@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="win95.css" />
+<style>
+	/* disable scrolling on ios
+	 https://stackoverflow.com/a/57489918/355753
+	 */
+
+body
+{
+	background:		#333;
+}
+
+#ToggleDebugButton
+{
+	/* make sure is displayed on top */
+	position:	absolute;
+	z-index:	101;
+	background:	#eee;
+}
+
+.PacketDebug
+{
+	display:	none;
+	
+	position:	relative;
+	z-index:	100;
+}
+
+#MoveButtonContainer
+{
+	background:	#aaa;
+}
+
+#CurrentState
+{
+	background:	#aaf;
+}
+
+#Prompt
+{
+	background:	var(--Yellow);
+	position:	absolute;
+	z-index:	4;
+	top:		50vh;
+	left:		50vw;
+	transform: translate(-50%, -50%);
+	padding:	3vmin;
+	border:		1px solid var(--Black);
+}
+#Prompt span
+{
+	display:	block;
+	margin-bottom:	3vmin;
+}
+
+#Debug
+{
+	background:	#afa;
+}
+
+#Error
+{
+	background:	#faa;
+}
+
+#GameWindow
+{
+	xxxopacity:	0.80;
+	position:	absolute;
+	left:		4vmin;
+	top:		4vmin;
+	right:		4vmin;
+	bottom:		4vmin;
+	xheight:		200px;
+	xwidth:		200px;
+}
+
+
+#ChatWindow
+{
+	position:	absolute;
+	bottom:		0vh;
+	left:		0vw;
+	width:		100vw;
+}
+
+:root
+{
+	--Black:		#000;
+	--CellDefault:	var(--Yellow);
+	--CellDisabled:	#dcc;
+	--Yellow:		#fc1;
+	--GridSize:		6;
+	--BoardSize:	90vmin;
+	--SelectionColour0:	#1f8;
+	--SelectionColour1:	#1ef;
+	--SelectionColour2:	#18f;
+	--SelectionColour3:	#61f;
+	--SelectionColour4:	#f1d;
+	--SelectionColour5:	#f11;
+}
+
+#StayButton,
+#FleeButton
+{
+	visibility:	hidden;
+}
+
+</style>
+</head>
+<body>
+	<h1>Looter!</h1>
+
+	<div id=Prompt>
+		<span>Prompt Here</span>
+		<button id="PromptButton">Okay</button>
+	</div>
+	
+	<button id="StayButton">Stay!</button> 
+	<button id="FleeButton">Flee!</button>
+	
+	<script>
+		var Pop;
+		
+		async function LoadAssets()
+		{
+			const PopModule = await import('../PopEngineCommon/PopEngine.js');
+			Pop = PopModule.default;
+			await ShowActionMessage('Welcome to Looter!','ok');
+		}
+	
+	
+		//	if WaitFor is a string, we wait for a button press with that label
+		//	if its a number, we yield for that time
+		async function ShowActionMessage(Message,WaitFor)
+		{
+			const ActionBox = document.querySelector('#Prompt');
+			const ActionText = document.querySelector('#Prompt span');
+			const ActionButton = document.querySelector('#Prompt button');
+			ActionText.innerText = Message;
+			
+			let WaitPromise;
+			
+			if ( typeof WaitFor == 'string' )
+			{
+				WaitPromise = WaitForButtonClick(ActionButton);
+				ActionButton.innerText = WaitFor;
+			}
+			else 
+			{
+				if ( isNaN(WaitFor) )
+					WaitFor = 3000;
+				WaitPromise = Pop.Yield(WaitFor);
+				HideElement(ActionButton);
+			}
+			
+			ShowElement(ActionBox);
+			const Result = await WaitPromise;
+			
+			Pop.Debug(`Action message clicked`);
+			HideElement(ActionBox);
+			HideElement(ActionButton);
+			
+			return Result;
+		}
+	
+		let UserMapSelectionIndexes = [];
+		let UserMapSelectionEnabled = false;
+	
+		function EnableUserSelection(Enable=true)
+		{
+			//	maybe push&pop user's selection here
+			UserMapSelectionEnabled = Enable;
+			
+			const CellColour = Enable ? 'var(--Yellow)' : 'var(--CellDisabled)';
+			document.documentElement.style.setProperty('--CellDefault', CellColour);
+		}
+		
+		async function ShowSelectionSequence(MapSequence)
+		{
+			EnableUserSelection(false);
+			ResetSelection();
+			await Pop.Yield(500);
+			for ( let MapIndex of MapSequence )
+			{
+				//	gr: this may need to ignore rules and just force it
+				await OnClickedCell(MapIndex);
+				await Pop.Yield(500);
+			}
+			await Pop.Yield(2000);
+			ResetSelection();
+		}
+			
+		function ResetSelection()
+		{
+			//	something has caused user to lose their selection
+			UserMapSelectionIndexes = [];
+			OnSelectionChanged();
+		}
+		
+		function GetSelectionIndex(MapIndex)
+		{
+			const SelectionIndex = UserMapSelectionIndexes.indexOf(MapIndex);
+			if ( SelectionIndex < 0 )
+				return null;
+			return SelectionIndex;
+		}
+		
+		function OnClickedCell(MapIndex)
+		{
+			//	todo: if not linked, reset selection
+			//	todo: if not linked, dont allow?
+
+			//	if already selected, remove
+			if ( GetSelectionIndex(MapIndex) !== null )
+			{
+				UserMapSelectionIndexes = UserMapSelectionIndexes.filter( i => i!=MapIndex );
+			}
+			else
+			{
+				UserMapSelectionIndexes.push(MapIndex);
+			}
+			OnSelectionChanged();
+		}
+		
+		function OnSelectionChanged()
+		{
+			//	update cell graphics
+			const Table = document.querySelector('#LetterBoard');
+			const MapWidth = Table.rows[0].cells.length;
+
+			function SetCell(x,y,Cell)
+			{
+				const Index = x + (y*MapWidth);
+				const SelectionIndex = GetSelectionIndex(Index);
+				SetCellSelected(Cell,SelectionIndex);
+			}
+			
+			for ( let r=0;	r<Table.rows.length;	r++ )
+			{
+				const Row = Table.rows[r];
+				for ( let c=0;	c<Row.cells.length;	c++ )
+				{
+					const Cell = Row.cells[c];
+					SetCell( c, r, Cell );
+				}
+			}
+		}
+		
+		function SetCellSelected(Cell,Index)
+		{
+			Pop.Debug(`SetCellSelected ${Cell}=${Index}`);
+			if ( Index === null || Index === false || Index === undefined )
+				Cell.removeAttribute('SelectionIndex');
+			else
+				Cell.setAttribute('SelectionIndex',Index);
+		}
+	
+	
+		function UpdatePath(PathCards)
+		{
+			Pop.Debug(`Update path: ${PathCards}`);
+		}
+	
+		function UpdatePlayers(PlayerStates)
+		{
+			Pop.Debug(`Update players: ${PlayerStates}`);
+		}
+		
+		async function ShowPlayerStayOrFlee(Player,StayOrFlee)
+		{
+			const Message = `${Player} chose to ${StayOrFlee}`;
+			await ShowActionMessage(Message,'ok');
+		}
+	
+		async function SetState(State)
+		{
+			//	update game board & scores
+			Pop.Debug(`SetState`,State);
+
+			UpdatePlayers(State.Players);
+			UpdatePath(State.Path);
+		}
+				
+		//	action done by someone registered on server
+		async function ShowAction(Action)
+		{
+			//	gr: need to catch when this is a message for this player
+			if ( Action.BadMove )
+			{
+				const Message = `Try Again: ${Action.BadMove}`;
+				await ShowActionMessage(Message,'ok');
+			}
+			else if ( Action.StayOrFlee )
+			{
+				//	someone chose
+				await ShowPlayerStayOrFlee(Action.Player,Action.StayOrFlee);
+			}
+			else
+			{
+				await ShowActionMessage( JSON.stringify(Action), 4000 );
+			}
+		}
+	
+		function GetElement(ElementOrSelector)
+		{
+			let Element = ElementOrSelector;
+			if ( typeof ElementOrSelector != 'string' )
+				return Element;
+			
+			Element = document.querySelector(ElementOrSelector);
+			if ( Element )
+				return Element;
+			
+			//	try as id
+			Element = document.querySelector(`#${ElementOrSelector}`);
+			if ( Element )
+				return Element;
+				
+			throw `Failed to find element matching ${ElementOrSelector}`;
+		}
+					
+		function ShowElement(ElementOrSelector)
+		{
+			const Element = GetElement(ElementOrSelector);
+			Element.style.visibility = 'visible';
+		}
+	
+		function HideElement(ElementOrSelector)
+		{
+			const Element = GetElement(ElementOrSelector);
+			Element.style.visibility = 'hidden';
+		}
+	
+		function HideActionButtons()
+		{
+			HideElement('StayButton');
+			HideElement('FleeButton');
+		}
+	
+		async function WaitForButtonClick(ButtonSelector,ReturnValue=undefined)
+		{
+			if ( ReturnValue === undefined )
+				ReturnValue = ButtonSelector;
+			const Element = GetElement(ButtonSelector);
+			const Promise = Pop.CreatePromise();
+			Element.onclick = Promise.Resolve;
+			ShowElement(ButtonSelector);
+			await Promise;
+			return ReturnValue;
+		}
+	
+		async function WaitForStayOrFlee()
+		{
+			//	show skip button
+			//	wait for it to be clicked
+			const StayClick = WaitForButtonClick(`#StayButton`,'Stay');
+			const FleeClick = WaitForButtonClick(`#FleeButton`,'Flee');
+			
+			const StayOrFlee = await Promise.race([StayClick,FleeClick]);
+			
+			//	hide all others when done
+			HideActionButtons();
+			
+			Pop.Debug(`WaitForStayOrFlee returning ${StayOrFlee}`);
+			return StayOrFlee;
+		}
+		
+	</script>
+</body>
+

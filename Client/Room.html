@@ -118,32 +118,8 @@ body
 		</div>
 	</div>
 
-	<script src='PopEngineCommon/PopWebApi.js'></script>
-	<script src='PopEngineCommon/PopApi.js'></script>
-	<script src='PopEngineCommon/PopWebOpenglApi.js'></script>
-	<script src='PopEngineCommon/PopWebGuiApi.js'></script>
-	<script src='PopEngineCommon/PopWebImageApi.js'></script>
-	<script src='PopEngineCommon/PopWebSocketApi.js'></script>
-	<script src='PopEngineCommon/PopWebRtcApi.js'></script>
-	<script src='PopEngineCommon/PopWebXrApi.js'></script>
-
-	<!-- engine normally loads these in-code -->
-	<script src='PopEngineCommon/PopMath.js'></script>
-	<script src='PopEngineCommon/PopCamera.js'></script>
-	<script src='PopEngineCommon/PopShaderCache.js'></script>
-	<script src='PopEngineCommon/ParamsWindow.js'></script>
-	<script src='bootup.js'></script>
-	<script src='AssetManager.js'></script>
-	
 	 <script src="NoSleep.min.js"></script>
 	 
-	<script src='Games/Minesweeper/MinesweeperClient.js'></script>
-	<script src='Games/Boggle/BoggleClient.js'></script>
-	
-	<script>
-		SetGuiControl_Draggable(document.getElementById('HelpWindow'));
-	</script>
-	
 	<div id=ChatWindow>
 		<div id=ChatContent>Chat</div>
 		<div><input type=text value="Type something and press enter"/></div>
@@ -153,430 +129,84 @@ body
 	
 	<script>
 	"use strict";
+	
+	const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaroo,Lobster,Mouse,Owl,Pig,Quail,Rabbit,Sheep,Tiger,Walrus,Zebra`.split(',');
 
-class TPlayerWindow
-{
-	constructor(InitialName,OnLocalNameChanged)
+	
+
+	function OnLocalNameChanged(NewName)
 	{
-		this.Window = new Pop.Gui.Window('Players',['65vmin','30vmin','30vmin','60vmin']);
-		this.MovePlayer = null;
-		this.PlayerLabels = {};
-		this.LastState = null;
+		window.sessionStorage.setItem('LocalPlayerName',NewName);
+	}
 		
-		//	add an edit box for your name
-		const Rect = this.GetTextBoxRect(0);
-		this.LocalName = new Pop.Gui.TextBox(this.Window,Rect);
-		this.LocalName.SetValue(InitialName);
-		this.LocalName.OnChanged = OnLocalNameChanged;
-		
-		//	add labels for other players as they come & go
-		OnLocalNameChanged(InitialName);
+	function GetLocalPlayerMeta()
+	{
+		//	return RTC metas
+		const Meta = {};
+		Meta.Name = GetLocalPlayerName();
+		/*
+		//	web rtc public meta to allow people to connect
+		Meta.WebRtc = GetPeerConnectionMeta();
+		*/
+		return Meta;
 	}
 	
-	GetTextBoxRect(Index)
+	function GetLocalPlayerName()
 	{
-		const Border = 5;
-		const Width = 100;
-		const Height = 20;
-		const x = Border;
-		const y = Border + ((Border+Height)*Index);
-		return [x,y,Width,Height];
+		const DefaultName = DefaultNames[ Math.floor( Math.random() * DefaultNames.length ) ];
+		let Name = window.sessionStorage.getItem('LocalPlayerName');
+		if ( !Name || Name.length==0 )
+			return DefaultName;
+		return Name;
 	}
 	
-	
-	UpdatePlayerList(Players)
+	function OnPlayerMetaChanged(NewPlayers)
 	{
-		const CurrentPlayer = this.LastState ? this.LastState.NextPlayer : null;
-		
-		//	create/update labels
-		function UpdatePlayerLabel(Player)
-		{
-			const Hash = Player.Hash;
-			if ( !this.PlayerLabels.hasOwnProperty(Hash) )
-				this.PlayerLabels[Hash] = new Pop.Gui.Label(this.Window,[0,0,40,20]);
+		Pop.Debug(`OnPlayerMetaChanged`,NewPlayers);
+		/*
+		//if ( !PlayerWindow )
+		//	PlayerWindow = new TPlayerWindow( GetLocalPlayerName(), OnLocalNameChanged );
 
-			const Label = this.PlayerLabels[Hash];
-
-			let LabelText = `${Player.Meta.Name} (<b>${Player.Score}</b>)`;
-			if ( Player.State == 'Waiting' )	LabelText += ' joining...';
-			if ( Player.State == 'Ghost' )		LabelText += ' &#9760;';	//	skull
-			if ( Player.Hash == CurrentPlayer )	LabelText += ' &larr;';	//	left arrow
-			for ( let i=0;	i<Player.Wins;	i++ )
-				LabelText += '&#11088;';	//	star
-			Label.SetValue(LabelText);
-		}
-		Players.forEach(UpdatePlayerLabel.bind(this));
-		
-		//	re-set all positions
-		function SetLabelRect(Hash,Index)
-		{
-			const Label = this.PlayerLabels[Hash];
-			//	+1 as we're using 0 for our name atm
-			const Rect = this.GetTextBoxRect(Index+1);
-			Label.SetRect(Rect);
-		}
-		Object.keys(this.PlayerLabels).forEach(SetLabelRect.bind(this));
-		
-	}
-	
-	Update(Packet)
-	{
-		//Pop.Debug(`Extract players from`,Packet);
-		if ( Packet.State )
-			this.LastState = Packet.State;
-	
-		if ( !Packet.Meta )
-			return;
-		
-		//	server should send this struct
-		const Players = [];
-		const PushPlayer = function(Player,State)
-		{
-			Player.State = State;
-			Player.Score = 0;
-			Players.push(Player);
-		}.bind(this);
-		
-		function GetPlayer(Hash)
-		{
-			return Players.filter(p=>p.Hash==Hash)[0];
-		}
-		
-		Packet.Meta.ActivePlayers.forEach( p => PushPlayer(p,'Active') );
-		Packet.Meta.WaitingPlayers.forEach( p => PushPlayer(p,'Waiting') );
-		Packet.Meta.DeletedPlayers.forEach( p => PushPlayer(p,'Ghost') );
-		Packet.Meta.DeletingPlayers.forEach( p => PushPlayer(p,'Ghost') );
-
-		//	look for ghosts in the score list
-		//	plus set their scores
-		if ( this.LastState && this.LastState.Scores )
-		{
-			for ( let [Hash,Score] of Object.entries(this.LastState.Scores))
-			{
-				if ( !GetPlayer(Hash) )
-				{
-					const GhostPlayer = {};
-					GhostPlayer.Hash = Hash;
-					GhostPlayer.Meta.Name = `${Hash} Ghost`;	//	we don't know their name any more
-					PushPlayer(GhostPlayer,'Ghost');
-				}
-				const Player = GetPlayer(Hash);
-				Player.Score = Score;
-			}
-		}
-		
-		//	look for ghosts who have labels but no score
-		//	(don't need this once we can delete labels)
-		function MarkLabelDead(Hash)
-		{
-			if ( GetPlayer(Hash) )
-				return;
-			const GhostPlayer = {};
-			GhostPlayer.Hash = Hash;
-			GhostPlayer.Meta.Name = `${Hash} Ghost`;	//	we don't know their name any more
-			PushPlayer(GhostPlayer,'Ghost');
-		}
-		Object.keys(this.PlayerLabels).forEach(MarkLabelDead.bind(this));
-		
-
-		this.UpdatePlayerList(Players);
-	}
-}
-
-const DefaultNames = `Ape,Beetle,Cat,Cod,Dog,Eel,Fox,Goat,Hamster,Iguana,Kangaroo,Lobster,Mouse,Owl,Pig,Quail,Rabbit,Sheep,Tiger,Walrus,Zebra`.split(',');
-
-let PlayerWindow = null;
-//	we need a server for each peer
-//	and a client to connect to each peer's server
-let EnableWebRtc = true;
-let PeerServers = {};	//	[peerhash]
-let PeerClients = {};	//	[peerhash]
-
-		//	gr: maybe need channel here
-		function OnMessage(Packet,FromPeerHash,FromSocket)
-		{
-			OnChatString( Packet.Data );
-			Pop.Debug(`Got packet ${Packet.Data} from ${FromPeerHash}/${FromSocket}`);
-		}
-		
-		function CreatePeerServer(PeerHash)
-		{
-			if ( !EnableWebRtc )
-				return;
-			async function Thread(Socket)
-			{
-				Pop.Debug(`${PeerHash} server waiting to connect`);
-				await Socket.WaitForConnect();
-				Pop.Debug(`${PeerHash} server Connected`);
-				while ( true )
-				{
-					const Packet = await Socket.WaitForMessage();
-					OnMessage( Packet, PeerHash, 'Server' );
-				}
-			}
-			const Socket = new Pop.WebRtc.Server();
-			PeerServers[PeerHash] = Socket;
-			Thread(Socket);//.then().catch(Pop.Error);
-		}
-
-		function CreatePeerClient(PeerHash,ServerAddress)
-		{
-			if ( !EnableWebRtc )
-				return;
-			async function Thread(Socket)
-			{
-				Pop.Debug(`${PeerHash} client waiting to connect`);
-				await Socket.WaitForConnect();
-				Pop.Debug(`${PeerHash} client Connected`);
-				while ( true )
-				{
-					const Packet = await Socket.WaitForMessage();
-					OnMessage( Packet, PeerHash, 'Client' );
-				}
-			}
-			const Socket = new Pop.WebRtc.Client(ServerAddress);
-			PeerClients[PeerHash] = Socket;
-			Thread(Socket);//.then().catch(Pop.Error);
-		}
-
-		//	update OUR server for the peer to connect to
-		function UpdatePeerServer(LocalPeerHash,PeerHash,Meta)
-		{
-			//	make sure we have a server for this peer
-			if ( !PeerServers.hasOwnProperty(PeerHash) )
-			{
-				Pop.Debug(`Making server for peer ${PeerHash}`);
-				CreatePeerServer(PeerHash);
-			}
-			
-			//	our server for the peer to connect to
-			const PeerServer = PeerServers[PeerHash];
-			if ( !PeerServer )
-			{
-				Pop.Debug(`We have no server for ${PeerHash}`);
-				return;
-			}
-			
-			//	if this peer has a client address for our server, use it
-			const PeerClientAddress = (Meta.WebRtc && Meta.WebRtc.ClientAddress) ? Meta.WebRtc.ClientAddress[LocalPeerHash] : null;
-			if ( PeerClientAddress )
-			{
-				Pop.Debug(`Adding client address of ${PeerHash} to our server`);
-				PeerServer.AddClient( PeerClientAddress );
-			}
-		}
-		
-		
-		//	update OUR client connecting to the peer's server
-		function UpdatePeerClient(LocalPeerHash,PeerHash,Meta)
-		{
-			//	does peer have a server address for us to connect to?
-			const PeerServerAddress = (Meta.WebRtc && Meta.WebRtc.ServerAddress) ? Meta.WebRtc.ServerAddress[LocalPeerHash] : null;
-			if ( !PeerServerAddress )
-			{
-				Pop.Debug(`Peer ${PeerHash} has no server address for us (${LocalPeerHash})`);
-				return;
-			}
-			
-			if ( !PeerServerAddress.OfferDescription )
-			{
-				Pop.Warning(`Peer ${PeerHash} Invalid server address`,PeerServerAddress);
-				return;
-			}
-			
-			//	make sure we have a client to connect to this peer
-			if ( !PeerClients.hasOwnProperty(PeerHash) )
-			{
-				Pop.Debug(`Creating peer client to connect to ${PeerHash}`);
-				CreatePeerClient(PeerHash,PeerServerAddress);
-			}
-		}
-		
-		
-		function UpdatePeerConnections(LocalPlayerHash,Players)
-		{
-			for ( let Player of Players )
-			{
-				//	we CAN actualyl connect to ourselves for loopback
-				if ( Player.Hash == LocalPlayerHash )
-					continue;
-				UpdatePeerServer( LocalPlayerHash, Player.Hash, Player.Meta );
-				UpdatePeerClient( LocalPlayerHash, Player.Hash, Player.Meta );
-			}	
-
-		}
-		
-		function GetPeerConnectionMeta()
-		{
-			const Meta = {};
-			Meta.ServerAddress = {};
-			Meta.ClientAddress = {};
-			
-			//	report server address if we're waiting for peer to connect
-			function AddServerMeta(PeerHash)
-			{
-				if ( !PeerServers.hasOwnProperty(PeerHash) )	
-					return;
-				const Server = PeerServers[PeerHash];
-				const ServerMeta = Server.GetAddress();
-				//if ( Server.IsConnected() )		return;	//	don't need meta if they're connected
-				if ( !ServerMeta )
-					return;
-
-				Meta.ServerAddress[PeerHash] = ServerMeta;
-			}
-			Object.keys(PeerServers).forEach(AddServerMeta);
-			
-			
-			
-			//	report client address if we're still waiting for them to join
-			function AddClientMeta(PeerHash)
-			{
-				if ( !PeerServers.hasOwnProperty(PeerHash) )	
-					return;
-				const Client = PeerClients[PeerHash];
-				const ClientMeta = Client.GetAddress();
-				//if ( Server.IsConnected() )		return;	//	don't need meta if they're connected
-				if ( !ClientMeta )
-					return;
-
-				Meta.ClientAddress[PeerHash] = ClientMeta;
-			}
-			Object.keys(PeerClients).forEach(AddClientMeta);
-			
-			return Meta;
-		}
-
-		function OnChatString(String)
-		{
-			if ( !String || String.length == 0 )
-				return;
-			const MaxLines = 20;
-			const ChatContentElement = document.querySelector(`#ChatWindow #ChatContent`);
-			let Content = ChatContentElement.innerText.split('\n');
-			Content.push(String);
-			Content = Content.slice(-MaxLines);
-			ChatContentElement.innerText = Content.join('\n');
-		}
-
-		function SendChatString(String)
-		{
-			if ( !String || String.length == 0 )
-				return;
-				
-			let SendCount = 0;
-			const Data = String;
-			const Servers = Object.values(PeerServers);
-			function Send(Server)
-			{
-				try
-				{
-					const Peer = Server.GetPeers()[0];
-					Server.Send(Peer,Data);
-					SendCount++;
-				}
-				catch(e)
-				{
-				}
-			}
-			Servers.forEach(Send);
-			
-			//	nothing got sent
-			if ( SendCount == 0 )
-				OnChatString(`${String} <-- Not connected to anyone`);
-		}
-
-
-		function GetLocalPlayerName()
-		{
-			const DefaultName = DefaultNames[ Math.floor( Math.random() * DefaultNames.length ) ];
-			let Name = window.sessionStorage.getItem('LocalPlayerName');
-			if ( !Name || Name.length==0 )
-				return DefaultName;
-			return Name;
-		}
-		
-		function OnLocalNameChanged(NewName)
-		{
-			window.sessionStorage.setItem('LocalPlayerName',NewName);
-		}
-			
-
-
-		function GetGameClass(ClassName)
-		{
-			return TMineSweeperGame;
-		}
-		
-		let LastLocalMeta = null;
-		function GetLocalPlayerMeta()
-		{
-			//	return RTC metas
-			const Meta = {};
-			Meta.Name = GetLocalPlayerName();
-			
-			//	web rtc public meta to allow people to connect
-			Meta.WebRtc = GetPeerConnectionMeta();
-			
-			//	return null to skip reporting changes
-			const MetaChanged = JSON.stringify(Meta) != JSON.stringify(LastLocalMeta);
-			LastLocalMeta = Meta;
-			
-			return MetaChanged ? Meta : null;
-		}
-		
-		function OnPlayerMetaChanged(NewPlayers)
-		{
-			Pop.Debug(`OnPlayerMetaChanged`,NewPlayers);
-			if ( !PlayerWindow )
-				PlayerWindow = new TPlayerWindow( GetLocalPlayerName(), OnLocalNameChanged );
-
+		if ( PlayerWindow )
 			PlayerWindow.Update(NewPlayers);
-			
-			//	gr: I don't know what my own player hash is here
-			//	update our webrtc sockets
-			UpdatePeerConnections( NewPlayers.Meta.YourPlayerHash, NewPlayers.Meta.ActivePlayers );			
-		}
+	*/	
+		//	gr: I don't know what my own player hash is here
+		//	update our webrtc sockets
+		/*
+		if ( UpdatePeerConnections )
+			UpdatePeerConnections( NewPlayers.Meta.YourPlayerHash, NewPlayers.Meta.ActivePlayers );
+		*/
+	}
+
+
+	var Pop;
+	async function Bootup()
+	{
+		const PopModule = await import('./PopEngineCommon/PopEngine.js');
+		Pop = PopModule.default;
+		const RoomModule = await import('./Room.js');
+		const RoomBootup = RoomModule.default;
+		//import RoomChat from './RoomChat.js'
 		
-		//	called critical section in pop api
-		let NoSleepGlobal = new NoSleep();
-		function PreventSleep()
+		//await RoomChat();
+		await RoomBootup( GetLocalPlayerMeta, OnPlayerMetaChanged );
+	}
+	Bootup();
+
+	
+	//	called critical section in pop api
+	let NoSleepGlobal = new NoSleep();
+	function PreventSleep()
+	{
+		function DisableSleep()
 		{
-			function DisableSleep()
-			{
-				NoSleepGlobal.enable();
-			}
-			document.onclick = DisableSleep;
+			NoSleepGlobal.enable();
 		}
-		
-		function SetupChatUi()
-		{
-			const ChatInput = document.querySelector(`#ChatWindow * input`);
-			function OnKeyPress(Event)
-			{
-				if ( Event.key == 'Escape' )
-				{
-					ChatInput.value = '';
-					return;
-				}
-				if ( Event.key == 'Enter' )
-				{
-					SendChatString(ChatInput.value);
-					ChatInput.value = '';
-					return;
-				}
-			}
-			ChatInput.onkeypress = OnKeyPress;			
-		}
+		document.onclick = DisableSleep;
+	}
+	PreventSleep();
+	
 				
-		async function Run(GetGameClass)
-		{
-			Bootup( GetGameClass, GetLocalPlayerMeta, OnPlayerMetaChanged );
-		}
-		
-		PreventSleep();
-		SetupChatUi();
-		Run();
 	
 	</script>
 </body>
