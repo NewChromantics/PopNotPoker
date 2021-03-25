@@ -517,7 +517,11 @@ let PeerClients = {};	//	[peerhash]
 			//	web rtc public meta to allow people to connect
 			Meta.WebRtc = GetPeerConnectionMeta();
 			
-			return Meta;
+			//	return null to skip reporting changes
+			const MetaChanged = JSON.stringify(Meta) != JSON.stringify(LastLocalMeta);
+			LastLocalMeta = Meta;
+			
+			return MetaChanged ? Meta : null;
 		}
 		
 		function OnPlayerMetaChanged(NewPlayers)
