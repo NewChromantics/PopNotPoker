@@ -108,6 +108,26 @@ body
 	visibility:	hidden;
 }
 
+
+#PathCards
+{
+	margin:	1vw;
+}
+
+#PathCards div
+{
+	display:	 inline-block;
+	width:		6vw;
+	height:		8vw;
+	background:	#fff;
+	border:		0.1vw #000 solid;
+	border-radius:	0.5vw;
+	color:		#000;
+	font-weight:	bolder;
+	padding:	1vw;
+	margin:		1vw -3vw 1vw 0vw;
+}
+
 </style>
 </head>
 <body>
@@ -124,8 +144,116 @@ body
 	<button id="FleeButton">Flee!</button>
 	
 	<script>
-		var Pop;
+	
+		class CardMeta_t
+		{
+			constructor(Name,Div)
+			{
+				this.Name = null;
+				this.Div = Div;
+				
+				this.SetName(Name);
+			}
+			
+			SetName(Name)
+			{
+				this.Name = Name;
+				//	update div
+				if ( this.Div )
+					this.Div.innerText = `${Name}`;
+			}
+			
+			Free()
+			{
+				//	delete div
+				if ( this.Div )
+				{
+				}
+			}
+		};
 		
+		class CardPile_t
+		{
+			constructor(ParentDiv)
+			{
+				this.ParentDiv = GetElement(ParentDiv);
+				this.Cards = [];	//	CardMeta_
+			}
+			
+			async AnimateCardChange(Card,NewName)
+			{
+				//	animate flip half way
+				await Pop.Yield(100);
+				//	change state of card
+				Card.SetName(NewName);
+				//	finish flip
+				await Pop.Yield(100);
+			}
+			
+			async AnimateCardRemoval(Card)
+			{
+				//	animate removal
+				await Pop.Yield(100);
+				//	cleanup
+				this.ParentDiv.removeChild(Card.Div);
+				Card.Free();
+			}
+			
+			async AddCard(Name)
+			{
+				//	create new card
+				const CardDiv = document.createElement('div');
+				this.ParentDiv.appendChild(CardDiv);
+				const Card = new CardMeta_t(Name,CardDiv);
+				this.Cards.push(Card);
+				//	animate appearance
+				await Pop.Yield(100);
+			}
+			
+			
+			//	specifically change a card, flipping it with anim!
+			async SetCardAt(Index,Name)
+			{
+				//	adding to end of array, use add func
+				if ( Index == this.Cards.length )
+				{
+					this.AddCard(Name);
+					return;
+				}
+				
+				if ( Index < 0 || Index > this.Cards.length )
+					throw `Trying to set a card(${Name}) at ${Index} too far out of the list`;
+				
+				//	no change
+				if ( this.Cards[Index].Name == Name )
+					return;
+				
+				//	change card
+				await this.AnimateCardChange( this.Cards[Index], Name );
+			}
+			
+			async SetCards(Names)
+			{
+				//	add/remove cards as appropriate
+				//	remove from the end first (sometimes may want to change from start?)
+				while ( this.Cards.length > Names.length )
+				{
+					const LastCard = this.Cards.pop();
+					await AnimateCardRemoval(LastCard);
+				}
+				
+				//	now go from start to end to change any cards that need changing
+				for ( let n=0;	n<Names.length;	n++ )
+				{
+					const NewName = Names[n];
+					await this.SetCardAt(n,NewName);
+				}
+			}
+		};
+	
+	
+	
+		var Pop;		
 		async function LoadAssets()
 		{
 			const PopModule = await import('../PopEngineCommon/PopEngine.js');
@@ -138,9 +266,9 @@ body
 		//	if its a number, we yield for that time
 		async function ShowActionMessage(Message,WaitFor)
 		{
-			const ActionBox = document.querySelector('#Prompt');
-			const ActionText = document.querySelector('#Prompt span');
-			const ActionButton = document.querySelector('#Prompt button');
+			const ActionBox = GetElement('#Prompt');
+			const ActionText = GetElement('#Prompt span');
+			const ActionButton = GetElement('#Prompt button');
 			ActionText.innerText = Message;
 			
 			let WaitPromise;
@@ -195,20 +323,21 @@ body
 			ResetSelection();
 		}
 		
+		let PathCardPile = null;
+		function GetPathCardPile()
+		{
+			if ( !PathCardPile )
+				PathCardPile = new CardPile_t('#PathCards');
+			return PathCardPile;
+		}	
 	
 		async function UpdatePath(PathCards)
 		{
 			PathCards = PathCards || [];
-			Pop.Debug(`Update path: ${PathCards}`);
-			let Debug = '';
-			function AppendCard(Card)
-			{
-				Debug += `${Card.Card}\n`;
-			}
-			PathCards.forEach( AppendCard );
 			
-			const Div = document.querySelector('#PathCards');
-			Div.innerText = Debug;
+			const Pile = GetPathCardPile();
+			const CardNames = PathCards.map( c => c.Card );
+			Pile.SetCards(CardNames);
 		}
 	
 		async function UpdatePlayers(PlayerStates)
@@ -223,7 +352,7 @@ body
 					Debug += `${Player} has ${State.Coins} coins\n`;
 				}
 			}
-			const Div = document.querySelector('#PlayerStates');
+			const Div = GetElement('#PlayerStates');
 			Div.innerText = Debug;
 		}
 		
