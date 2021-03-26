@@ -118,6 +118,8 @@ body
 		<button id="PromptButton">Okay</button>
 	</div>
 	
+	<div id="PlayerStates"></div>
+	<div id="PathCards"></div>
 	<button id="StayButton">Stay!</button> 
 	<button id="FleeButton">Flee!</button>
 	
@@ -192,81 +194,37 @@ body
 			await Pop.Yield(2000);
 			ResetSelection();
 		}
+		
+	
+		async function UpdatePath(PathCards)
+		{
+			PathCards = PathCards || [];
+			Pop.Debug(`Update path: ${PathCards}`);
+			let Debug = '';
+			function AppendCard(Card)
+			{
+				Debug += `${Card.Card}\n`;
+			}
+			PathCards.forEach( AppendCard );
 			
-		function ResetSelection()
-		{
-			//	something has caused user to lose their selection
-			UserMapSelectionIndexes = [];
-			OnSelectionChanged();
+			const Div = document.querySelector('#PathCards');
+			Div.innerText = Debug;
 		}
-		
-		function GetSelectionIndex(MapIndex)
+	
+		async function UpdatePlayers(PlayerStates)
 		{
-			const SelectionIndex = UserMapSelectionIndexes.indexOf(MapIndex);
-			if ( SelectionIndex < 0 )
-				return null;
-			return SelectionIndex;
-		}
-		
-		function OnClickedCell(MapIndex)
-		{
-			//	todo: if not linked, reset selection
-			//	todo: if not linked, dont allow?
-
-			//	if already selected, remove
-			if ( GetSelectionIndex(MapIndex) !== null )
+			let Debug = '';
+			Pop.Debug(`Update players: ${PlayerStates}`);
+			if ( PlayerStates )
 			{
-				UserMapSelectionIndexes = UserMapSelectionIndexes.filter( i => i!=MapIndex );
-			}
-			else
-			{
-				UserMapSelectionIndexes.push(MapIndex);
-			}
-			OnSelectionChanged();
-		}
-		
-		function OnSelectionChanged()
-		{
-			//	update cell graphics
-			const Table = document.querySelector('#LetterBoard');
-			const MapWidth = Table.rows[0].cells.length;
-
-			function SetCell(x,y,Cell)
-			{
-				const Index = x + (y*MapWidth);
-				const SelectionIndex = GetSelectionIndex(Index);
-				SetCellSelected(Cell,SelectionIndex);
-			}
-			
-			for ( let r=0;	r<Table.rows.length;	r++ )
-			{
-				const Row = Table.rows[r];
-				for ( let c=0;	c<Row.cells.length;	c++ )
+				for ( let [Player,State] of Object.entries(PlayerStates) )
 				{
-					const Cell = Row.cells[c];
-					SetCell( c, r, Cell );
+					//await SetPlayerState(Player,State);
+					Debug += `${Player} has ${State.Coins} coins\n`;
 				}
 			}
-		}
-		
-		function SetCellSelected(Cell,Index)
-		{
-			Pop.Debug(`SetCellSelected ${Cell}=${Index}`);
-			if ( Index === null || Index === false || Index === undefined )
-				Cell.removeAttribute('SelectionIndex');
-			else
-				Cell.setAttribute('SelectionIndex',Index);
-		}
-	
-	
-		function UpdatePath(PathCards)
-		{
-			Pop.Debug(`Update path: ${PathCards}`);
-		}
-	
-		function UpdatePlayers(PlayerStates)
-		{
-			Pop.Debug(`Update players: ${PlayerStates}`);
+			const Div = document.querySelector('#PlayerStates');
+			Div.innerText = Debug;
 		}
 		
 		async function ShowPlayerStayOrFlee(Player,StayOrFlee)
@@ -280,8 +238,8 @@ body
 			//	update game board & scores
 			Pop.Debug(`SetState`,State);
 
-			UpdatePlayers(State.Players);
-			UpdatePath(State.Path);
+			await UpdatePlayers(State.Players);
+			await UpdatePath(State.Path);
 		}
 				
 		//	action done by someone registered on server
