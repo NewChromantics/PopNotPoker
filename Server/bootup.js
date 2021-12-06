@@ -135,7 +135,7 @@ const Args = ParseExeArguments( Pop.GetExeArguments() );
 Pop.Debug(`Args=${JSON.stringify(Args)}`);
 //	need a global to stop server being garbage collected
 let ClientHttpServer = null;
-
+let ClientHttpServerPort = 8008;
 
 function StartClientHttpServer(ServerHost,ServerPort,ServerRoom)
 {
@@ -148,7 +148,7 @@ function StartClientHttpServer(ServerHost,ServerPort,ServerRoom)
 	if ( !ClientHttpServer )
 	{
 		const ServePath = Args.HttpServer;
-		ClientHttpServer = CreateClientHttpServer(ServePath);
+		ClientHttpServer = CreateClientHttpServer(ServePath,ClientHttpServerPort);
 	
 		//	don't keep popping this up in case we get stuck in a loop	
 		const HttpAddress = ClientHttpServer.GetAddress()[0].Address;
