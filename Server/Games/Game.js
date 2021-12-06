@@ -20,6 +20,11 @@ export default class Game
 		this.NextPlayer = null;
 	}
 	
+	get GameTypeName()
+	{
+		return this.constructor.name;
+	}
+	
 	GetPublicState(PrivateState)
 	{
 		//	don't modify object that has come in

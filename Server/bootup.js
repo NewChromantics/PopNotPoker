@@ -18,7 +18,7 @@ async function RunGameRoomLoop(Room,GameClass)
 		Pop.Debug(`New Game!`);
 
 		const Game = new GameClass();
-		Room.OnStartGame(Game.constructor.name);
+		Room.OnStartGame(Game.GameTypeName);
 		//	for players still in room from a previous game, turn them back into waiting
 		//	players so they go through the same joining routine
 		Room.DeactivatePlayers();

@@ -114,6 +114,11 @@ class BoggleGame extends Game
 		this.State = this.InitState();
 	}
 	
+	get GameTypeName()
+	{
+		return `Boggle`;
+	}
+	
 	InitState()
 	{
 		const State = {};
