@@ -125,7 +125,7 @@ body
 		<div><input type=text value="Type something and press enter"/></div>
 	</div>
 	
-	<iframe id="GameWindow">Loading game..</iframe>
+	<div id=GameWindow>Loading game...</div>
 	
 	<script>
 	"use strict";
@@ -153,10 +153,15 @@ body
 	
 	function GetLocalPlayerName()
 	{
-		const DefaultName = DefaultNames[ Math.floor( Math.random() * DefaultNames.length ) ];
-		let Name = window.sessionStorage.getItem('LocalPlayerName');
-		if ( !Name || Name.length==0 )
-			return DefaultName;
+		let Name = window.sessionStorage.getItem('LocalPlayerName')||'';
+		
+		if ( Name.length==0 )
+		{
+			const DefaultName = DefaultNames[ Math.floor( Math.random() * DefaultNames.length ) ];
+			OnLocalNameChanged(DefaultName);
+			Name = DefaultName;
+		}
+		
 		return Name;
 	}
 	
@@ -189,7 +194,8 @@ body
 		//import RoomChat from './RoomChat.js'
 		
 		//await RoomChat();
-		await RoomBootup( GetLocalPlayerMeta, OnPlayerMetaChanged );
+		const GameElementParent = document.querySelector(`#GameWindow`);
+		await RoomBootup( GetLocalPlayerMeta, OnPlayerMetaChanged, GameElementParent );
 	}
 	Bootup();
 

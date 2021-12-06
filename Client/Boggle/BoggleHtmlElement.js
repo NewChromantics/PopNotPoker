@@ -1,31 +1,136 @@
+const ElementName = 'boggle-game';
+export default ElementName;
 
-class Boggle extends HTMLElement 
+import PromiseQueue from '../PopEngineCommon/PromiseQueue.js' 
+import Pop from '../PopEngineCommon/PopEngine.js'
+
+class BaseGameElement extends HTMLElement
+{
+	constructor()
+	{
+		super();
+		
+		//	async updates
+		this.UpdateQueue = new PromiseQueue(`Game update queue`);
+		this.Update().catch( this.OnError.bind(this) );
+	}
+
+	OnError(Error)
+	{
+		console.error(Error);
+	}
+
+	async Update()
+	{
+		//	while not deleted!
+		while ( true )
+		{
+			const Job = await this.UpdateQueue.WaitForNext();
+			await Job();
+		}
+	}
+
+	async SetState(State)
+	{
+		this.state = State;
+	}
+
+	UpdateState(State,Message)
+	{
+		async function Call()
+		{
+			await this.SetState(State);
+		}
+		this.UpdateQueue.Push( Call.bind(this) );
+	}
+	
+	OnMoveRequest(Move,SendReplyAction)
+	{
+		//	here we should verify we understand the actions		
+		async function Run()
+		{
+			const ActionPromises = [];
+
+			async function WaitForSkip()
+			{
+				await Pop.Yield(3*1000);
+				//const MapSequence = await this.WaitForSkip();
+				const Action = ['SkipTurn'];
+				return Action;
+			}
+		
+			async function WaitForMapSequence()
+			{
+				await Pop.Yield(3*1000);
+				//const MapSequence = await this.Ui.WaitForMapSequence();
+				const MapSequence = [0,0,0,0]; //await this.Ui.WaitForMapSequence();
+				Pop.Debug(`Got MapSequence from ui ${MapSequence}`);
+				const Action = ['PickMapSequence',...MapSequence];
+				return Action;
+			}
+
+			//	for the different options, make a promise which returns ('ActionName',[Args])
+			if ( Move.Actions.SkipTurn )
+				ActionPromises.push( WaitForSkip.call(this) );
+			
+			if ( Move.Actions.PickMapSequence )
+				ActionPromises.push( WaitForMapSequence.call(this) );
+			
+			//	send back the first one triggered
+			const ActionResponse = await Promise.race( ActionPromises );
+			Pop.Debug(`ActionResponse = ${JSON.stringify(ActionResponse)}`);
+			SendReplyAction( ...ActionResponse );
+		}
+		this.UpdateQueue.Push( Run.bind(this) );
+	}
+	
+	OnPlayerMetaChanged(Message)
+	{
+		console.log(`OnPlayerMetaChanged message ${Message}`);
+	}
+	
+	OnAction(Message)
+	{
+		async function RunAction()
+		{
+			console.log(`Run action`,Message);
+			//	update state
+			await Pop.Yield(1*1000);
+		};
+		this.UpdateQueue.Push( RunAction.bind(this) );
+		console.log(`Unhandled message ${Message}`);
+	};
+
+	OnOtherMessage(Message,SendReply)
+	{
+		console.log(`Unhandled message ${Message}`);
+	}
+}
+
+
+
+class Boggle extends BaseGameElement 
 {
 	constructor()
 	{
 		super();
 	}
 	
-	static ElementName()
-	{
-		return 'boggle-game';
-	}
 	
 	static get observedAttributes() 
 	{
-		return ['css','gridletters'];
+		return ['css','lettertiles'];
 	}
 	get css()					{	return this.getAttribute('css');	}
 	set css(Css)				{	Css ? this.setAttribute('css', Css) : this.removeAttribute('css');	}
-	get lettertiles()			{	return this.getAttribute('lettertiles').split('');	}
-/*	
+	get lettertiles()			{	return (this.getAttribute('lettertiles')||'').split('');	}
 	set lettertiles(newValue)	
 	{
 		if ( Array.isArray(newValue) )
 			newValue = newValue.join('');
 		this.setAttribute('lettertiles', newValue);	
 	}
-	*/
+
 	get ColumnCount()
 	{
 		return this.RowCount;
@@ -38,6 +143,12 @@ class Boggle extends HTMLElement
 		return Sqrt;
 	}
 	
+	
+	async SetState(State)
+	{
+		//this.state = State;
+		this.lettertiles = State.Map;
+	}
 
 	SetupDom(Parent)
 	{
@@ -135,4 +246,4 @@ class Boggle extends HTMLElement
 
 
 //	name requires dash!
-window.customElements.define( Boggle.ElementName(), Boggle );
+window.customElements.define( ElementName, Boggle );

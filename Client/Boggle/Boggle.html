@@ -140,8 +140,6 @@ body
 }
 
 </style>
-	<script src='PopEngineCommon/PopWebApi.js'></script>
-	<script src='PopEngineCommon/PopApi.js'></script>
 </head>
 <body>
 	<h1>Boggle</h1>	
@@ -167,13 +165,12 @@ body
 	
 	<script>
 	
-	
-		let PopCardsModule;
+		//import Pop from '../PopEngineCommon/PopEngine.js'
+		let Pop;
 		
 		async function LoadAssets()
 		{
-			PopCardsModule = await import('./PopCards.js');
-			
+			Pop = await import('../PopEngineCommon/PopEngine.js');
 			await ShowActionMessage('Welcome to boggle!','ok');
 		}
 	

@@ -1,6 +1,7 @@
 import TLooterClient from './Looter/LooterClient.js'
-import TBoggleClient from './Boggle/BoggleClient.js'
+import BoggleElementName from './Boggle/BoggleHtmlElement.js'
 import TMinesweeperClient from './Minesweeper/MinesweeperClient.js'
+import PromiseQueue from './PopEngineCommon/PromiseQueue.js'
 /*
 	<script src='PopEngineCommon/PopWebApi.js'></script>
 	<script src='PopEngineCommon/PopApi.js'></script>
@@ -42,7 +43,7 @@ class TDebugClient
 		this.RenderWindow = new TMinesweeperWindow();
 		this.PlayerWindow = new PlayerWindow( this.OnLocalNameChanged.bind(this) );
 		*/
-		this.UpdateQueue = new Pop.PromiseQueue();
+		this.UpdateQueue = new PromiseQueue(`Debug Client update queue`);
 		this.Update();
 		
 		StateGui.SetVisible(true);
@@ -159,16 +160,22 @@ class TDebugClient
 
 
 
+let GameElementParent = null;
+const GameHandlers = {};	//	[Game.Hash] = GameClient (being deprecated)
 
-const Games = {};
-
-function AllocGame(GameType)
+function AllocGameHandler(GameType)
 {
-	Pop.Debug(`AllocGame(${GameType})`);
+	Pop.Debug(`AllocGameHandler(${GameType})`);
 	switch(GameType)
 	{
-		case 'TBoggleGame':
-			return new TBoggleClient();
+		//	boggle is now explicitly a html element
+		case 'Boggle':
+		{
+			Pop.Debug(`New game element! ${BoggleElementName} ${GameType}`);
+			const Element = document.createElement(BoggleElementName);
+			GameElementParent.appendChild(Element);
+			return Element;
+		}
 
 		case 'TMinesweeperGame':
 			return new TMinesweeperClient();
@@ -188,13 +195,15 @@ function GetGame(Packet)
 	if ( !GameHash )
 		throw `GameHash missing`;
 	
-	if ( !Games.hasOwnProperty(GameHash) )
+	if ( !GameHandlers.hasOwnProperty(GameHash) )
 	{
 		Pop.Debug(`New game! ${GameHash}:${GameType}`);
-		Games[GameHash] = AllocGame( GameType );
+		GameHandlers[GameHash] = AllocGameHandler( GameType );
 	}
 	
-	return Games[GameHash];
+	const GameHandler = GameHandlers[GameHash];
+
+	return GameHandler;
 }
 
 function ClearMoveActionButtons()
@@ -433,8 +442,10 @@ function GetNextAddress()
 }
 
 
-export default async function RoomBootup(GetLocalPlayerName,OnPlayerMetaChanged)
+export default async function RoomBootup(GetLocalPlayerName,OnPlayerMetaChanged,GameElement)
 {
+	GameElementParent = GameElement;
+	
 	let LastLocalMeta = null;
 	function DoGetLocalPlayerMeta()
 	{

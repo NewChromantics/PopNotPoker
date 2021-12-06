@@ -1,81 +1,31 @@
-class TBoggleUi
-{
-	constructor()
-	{
-	}
-	
-	async LoadAssets()
-	{
-		//	load the iframe
-		const Iframe = document.querySelector('iframe');
-		const LoadedPromise = Pop.CreatePromise();
-		
-		function OnIframeLoaded()
-		{
-			LoadedPromise.Resolve();
-		}
-		Iframe.addEventListener("load",OnIframeLoaded);
-		//	gr: do we need a random number to force reload?
-		Iframe.src = `Boggle.html?${Math.random()}`;
-		
-		Pop.Debug(`waiting for iframe to load ${Iframe.src}...`);
-		await LoadedPromise;
-		
-		//	grab the dom of the iframe
-		this.Window = Iframe.contentWindow;
-		this.Dom = this.Window.document;
-		
-		//	init page contents?
-		await this.Window.LoadAssets();		
-	}
-	
-	async SetState(State)
-	{
-		//	update ui, wait for animations
-		Pop.Debug(`Show state change`,State);
-		await this.Window.SetState(State);
-	}
-	
-	async OnAction(Packet)
-	{
-		const Action = Packet.Action;
-		await this.Window.ShowAction(Action);
-	}
-	
-	async WaitForSkip()
-	{
-		return this.Window.WaitForSkip();
-	}
-	
-	async WaitForMapSequence()
-	{
-		return this.Window.WaitForMapSequence();
-	}
-	
-}
+import Pop from '../PopEngineCommon/PopEngine.js'
+import {CreatePromise} from '../PopEngineCommon/PopApi.js'
+import PromiseQueue from '../PopEngineCommon/PromiseQueue.js'
+
+import BoggleElementName from './BoggleHtmlElement.js'
+
+
 
 export default class TBoggleClient
 {
 	constructor()
 	{
-		this.Ui = new TBoggleUi();
-		this.UpdateQueue = new Pop.PromiseQueue();
-		this.Update();
+		this.UpdateQueue = new PromiseQueue(`Boggle client update queue`);
+		this.Update().catch( this.OnError.bind(this) );
 	}
 	
-	async LoadAssets()
+	OnError(Error)
 	{
-		await this.Ui.LoadAssets();
+		Pop.Warning(`Game error ${Error}`);
 	}
 	
-	async Init()
+	ElementTypeName()
 	{
+		return BoggleElementName;
 	}
 	
 	async Update()
 	{
-		await this.LoadAssets();
-		await this.Init();
 		while(true)
 		{
 			const Job = await this.UpdateQueue.WaitForNext();
