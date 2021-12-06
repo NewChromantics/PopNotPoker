@@ -8,18 +8,14 @@ function CreateArrayRange(First,Last)
 	return a;
 }
 
-//	gr: various reasons whether we should/shouldnt use this like a module
-//		but the big plus, is that the filename resolves nicely
-//import DictionaryJson from './Boggle/Dictionary_EnglishUk.js'
-const DictionaryJson =
-{
-"Hello":1
-};
 
 class TDictionary
 {
 	constructor()
 	{
+		//	load dictionary json
+		const DictionaryJsonString = Pop.LoadFileAsString('Games/Boggle/Dictionary_EnglishUk.json');
+		const DictionaryJson = JSON.parse(DictionaryJsonString);
 		this.Dictionary = DictionaryJson;
 	}
 	
