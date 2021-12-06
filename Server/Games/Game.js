@@ -5,7 +5,7 @@ function isFunction(functionToCheck)
 	return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
 }
 
-class TGame
+export default class Game
 {
 	constructor()
 	{

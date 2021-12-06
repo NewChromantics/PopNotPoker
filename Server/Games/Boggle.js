@@ -1,3 +1,6 @@
+import Game from './Game.js'
+import {ShuffleArray} from '../PopEngineCommon/PopApi.js'
+
 function CreateArrayRange(First,Last)
 {
 	const Length = Last - First;
@@ -5,13 +8,18 @@ function CreateArrayRange(First,Last)
 	return a;
 }
 
+//	gr: various reasons whether we should/shouldnt use this like a module
+//		but the big plus, is that the filename resolves nicely
+//import DictionaryJson from './Boggle/Dictionary_EnglishUk.js'
+const DictionaryJson =
+{
+"Hello":1
+};
+
 class TDictionary
 {
 	constructor()
 	{
-		//	load dictionary json
-		const DictionaryJsonString = Pop.LoadFileAsString('Boggle/Dictionary_EnglishUk.json');
-		const DictionaryJson = JSON.parse(DictionaryJsonString);
 		this.Dictionary = DictionaryJson;
 	}
 	
@@ -73,7 +81,7 @@ class TBoggleRules
 		//	todo; scale weights here? or just generate more pools...
 		if ( LetterCount > LetterPool.length )
 			throw `Alphabet pool ${LetterPool} too small for LetterCount=${LetterCount}`;
-		Pop.Array.Shuffle(LetterPool);
+		ShuffleArray(LetterPool);
 		return LetterPool.slice(0,LetterCount);
 	}
 	
@@ -96,7 +104,7 @@ class TBoggleRules
 }
 
 
-class TBoggleGame extends TGame
+class BoggleGame extends Game
 {
 	constructor()
 	{
@@ -399,3 +407,5 @@ class TBoggleGame extends TGame
 		return BestPlayers;
 	}
 }
+
+export default BoggleGame;

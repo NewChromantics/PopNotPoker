@@ -51,7 +51,7 @@ function CreateDeck()
 			Deck.push(Reward);
 	}
 	
-	Pop.Array.Shuffle(Deck);
+	ShuffleArray(Deck);
 	return Deck;
 }
 

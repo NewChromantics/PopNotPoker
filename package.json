@@ -6,7 +6,7 @@
   "version": "0.0.16",
   "main": "index.js",
   "dependencies": {
-    "@newchromantics/popengine": "^0.0.40",
+    "@newchromantics/popengine": "^0.0.62",
     "http-proxy": "^1.18.1",
     "node-static": "^0.7.11"
   },
