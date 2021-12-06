@@ -1,0 +1,75 @@
+:host
+{
+	--CellW:	calc( 100 / var(--ColCount) );
+	--CellH:	calc( 100 / var(--RowCount) );
+	--CellSize:	20%;
+	/*calc( min( var(--CellW), var(--CellH) ) * 1% );*/
+	
+	column-gap:		10px;
+	row-gap:			-50px;
+	grid-template-columns:	repeat( var(--ColCount), var(--CellSize) );
+	grid-template-rows:		repeat( var(--RowCount), var(--CellSize) );
+}
+
+div
+{
+	background:	lime;
+	position:	relative;
+	border:		1px solid black;
+	margin-top: -30px;
+}
+
+div::before 
+{
+	content: '';
+	display: block;
+	padding-top: 100%;
+}
+
+
+div::after 
+{
+	content: attr(tile);
+	display: block;
+	position:	absolute;
+	top:	0px;
+	left:	0px;
+	right:	0px;
+	bottom:	0px;
+}
+
+@keyframes DropIn
+{
+	0%
+	{
+		transform: translateY( var(--StartOffset) );
+	}
+	
+	100%
+	{
+		transform: translateY(0);
+	}
+	
+}
+
+div
+{
+	--StartOffset:				calc(-100vh);/*calc( -100vh + var(--rand0) * -80vh );*/
+	animation-name:				DropIn;
+	animation-duration:			calc( 0.6s);/* + var(--rand1) * 0.5s );*/
+	animation-delay:			calc( var(--rand2) * 0.6s );
+	animation-iteration-count:	1;
+	/*animation-timing-function:	linear;*/
+	animation-timing-function:	cubic-bezier(0.65, 0.74, 1, 1.13);
+
+	/* start at starting point and hold last frame, so we can use delay */
+	
+	transform:					translateY( var(--StartOffset) );
+	animation-fill-mode:		forwards;
+	
+	
+	box-shadow: 0px 25px 0px 0px #ad852b, 0px 28px 0px 0px #000000;
+}
+
+
+
