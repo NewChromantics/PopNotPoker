@@ -26,7 +26,16 @@ class TileMapElement extends HTMLElement
 	{
 		let Columns = parseInt( this.getAttribute('columns') );
 		if ( isNaN(Columns) )
+		{
 			Columns = 1;
+			
+			//	auto-square if possible
+			let TileCount = this.tiles.length;
+			if ( TileCount > 1 )
+			{
+				Columns = Math.ceil( Math.sqrt(TileCount) );
+			}
+		}
 		Columns = Math.max( 1, Columns );
 		return Columns;	
 	}
@@ -91,11 +100,24 @@ class TileMapElement extends HTMLElement
 			this.UpdateTiles();
 	}
 	
+	CreateNewTileElement()
+	{
+		let Element = document.createElement('div');
+		return Element;
+	}
+	
+	UpdateTileElement(Element,Tile,Index)
+	{
+		Element.className = 'Tile';
+		Element.setAttribute('Tile',Tile);
+		Element.innerText = Tile;
+	}
+	
 	UpdateTiles()
 	{
 		const Tiles = this.tiles;
 		while ( this.TileMapDiv.children.length < Tiles.length )
-			this.TileMapDiv.appendChild( document.createElement('div') );
+			this.TileMapDiv.appendChild( this.CreateNewTileElement() );
 			
 		while ( this.TileMapDiv.children.length > Tiles.length )
 			this.TileMapDiv.removeChild( this.TileMapDiv.lastChild );
@@ -103,9 +125,7 @@ class TileMapElement extends HTMLElement
 		function UpdateTile(Tile,Index)
 		{
 			let TileDiv = this.TileMapDiv.children[Index];
-			TileDiv.className = 'Tile';
-			TileDiv.setAttribute('Tile',Tile);
-			TileDiv.innerText = Tile;
+			this.UpdateTileElement( TileDiv, Tile, Index );
 		}
 		Tiles.forEach( UpdateTile.bind(this) );
 	}
@@ -124,6 +144,83 @@ class TileMapElement extends HTMLElement
 		Parent.appendChild(this.TileMapDiv);
 		
 		this.attributeChangedCallback();
+	}
+}
+
+class SelectableTileMapElement extends TileMapElement
+{
+	constructor()
+	{
+		super();
+	}
+	
+	static ElementName()
+	{
+		return 'selectable-tile-map';
+	}
+	
+	static get observedAttributes() 
+	{
+		return [...TileMapElement.observedAttributes,'selected'];
+	}
+	
+	get selectedindexes()
+	{
+		let Selected = this.getAttribute('selected')||'';
+		Selected = Selected.length ? Selected.split(',') : [];
+		Selected = Selected.map( v => parseInt(v) );
+		return Selected;
+	}
+	
+	set selectedindexes(Indexes)
+	{
+		if ( Array.isArray(Indexes) )
+			Indexes = Indexes.join(',');
+		this.setAttribute('selected',Indexes);
+	}
+	
+	CreateNewTileElement()
+	{
+		let Element = document.createElement('button');
+		function OnClickedTileElement()
+		{
+			let Index = parseInt( Element.getAttribute('index') );
+			this.OnClickedTile(Index);
+		}
+		Element.onclick = OnClickedTileElement.bind(this);
+		return Element;
+	}
+
+	UpdateTileElement(Element,Tile,Index)
+	{
+		super.UpdateTileElement( Element, Tile, Index );
+		Element.setAttribute('index',Index);
+		
+		let SelectedIndexes = this.selectedindexes;
+		//	which order this tile was selected
+		let SelectedIndex = SelectedIndexes.indexOf(Index);
+		if ( SelectedIndex < 0 )
+			Element.removeAttribute('selectionindex');
+		else
+			Element.setAttribute('selectionindex',SelectedIndex);
+	}
+	
+	OnClickedTile(Index)
+	{
+		let SelectedIndexes = this.selectedindexes;
+		let SelectedIndex = SelectedIndexes.indexOf(Index);
+		//	not in list
+		if ( SelectedIndex < 0 )
+		{
+			SelectedIndexes.push(Index);
+		}
+		else
+		{
+			//	remove from list
+			//	or put at end?
+			SelectedIndexes.splice( SelectedIndex, 1 );
+		}
+		this.selectedindexes = SelectedIndexes;
 	}
 }
 
@@ -192,13 +289,17 @@ class BaseGameElement extends HTMLElement
 		console.log(`OnPlayerMetaChanged message ${Message}`);
 	}
 	
+	async ShowAction(Action)
+	{
+		console.log(`ShowAction action`,Action);
+		await Pop.Yield(1*1000);
+	}
+
 	OnAction(Message)
 	{
 		async function RunAction()
 		{
-			console.log(`Run action`,Message);
-			//	update state
-			await Pop.Yield(1*1000);
+			await this.ShowAction( Message.Action );
 		};
 		this.UpdateQueue.Push( RunAction.bind(this) );
 		console.log(`Unhandled message ${Message}`);
@@ -239,13 +340,35 @@ class Boggle extends BaseGameElement
 			this.TileMap.tiles = State.Map;
 		}
 	}
+	
+	async ShowSequenceSelection(Sequence)
+	{
+		let OldSelected = this.TileMap.selectedindexes;
+		
+		for ( let i=0;	i<=Sequence.length;	i++ )
+		{
+			this.TileMap.selectedindexes = Sequence.slice(0,i);
+			await Pop.Yield(200);
+		}
+		await Pop.Yield(500);
+		this.TileMap.selectedindexes = OldSelected;
+	}		
+	
+	async ShowAction(Action)
+	{
+		if ( Action.MapSequence )
+			return await this.ShowSequenceSelection(Action.MapSequence);
+		
+		//	unhandled action
+		return super.ShowAction(Action);
+	}
 
 	SetupDom(Parent)
 	{
 		this.Style = document.createElement('style');
 		Parent.appendChild(this.Style);
 		
-		this.TileMap = document.createElement( TileMapElement.ElementName() );
+		this.TileMap = document.createElement( SelectableTileMapElement.ElementName() );
 		Parent.appendChild(this.TileMap);
 
 		this.PlayButton = document.createElement('Button');
@@ -296,8 +419,7 @@ class Boggle extends BaseGameElement
 			this.PlayButton.onclick = () => OnClickPromise.Resolve();
 			await OnClickPromise;
 			
-			//const MapSequence = await this.Ui.WaitForMapSequence();
-			const MapSequence = [0,0,0,0]; //await this.Ui.WaitForMapSequence();
+			const MapSequence = this.TileMap.selectedindexes;
 			Pop.Debug(`Got MapSequence from ui ${MapSequence}`);
 			const Action = ['PickMapSequence',...MapSequence];
 			return Action;
@@ -316,6 +438,7 @@ class Boggle extends BaseGameElement
 		Pop.Debug(`ActionResponse = ${JSON.stringify(ActionResponse)}`);
 		this.SkipButton.disabled = true;
 		this.PlayButton.disabled = true;
+		this.TileMap.selectedindexes = [];
 
 		return ActionResponse;
 	}
@@ -325,3 +448,4 @@ class Boggle extends BaseGameElement
 //	name requires dash!
 window.customElements.define( ElementName, Boggle );
 window.customElements.define( TileMapElement.ElementName(), TileMapElement );
+window.customElements.define( SelectableTileMapElement.ElementName(), SelectableTileMapElement );
