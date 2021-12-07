@@ -173,6 +173,7 @@ function AllocGameHandler(GameType)
 		{
 			Pop.Debug(`New game element! ${BoggleElementName} ${GameType}`);
 			const Element = document.createElement(BoggleElementName);
+			Element.css = 'Boggle/Boggle.css';
 			GameElementParent.appendChild(Element);
 			return Element;
 		}

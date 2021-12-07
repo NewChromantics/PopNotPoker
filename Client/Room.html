@@ -59,9 +59,25 @@ body
 	position:	absolute;
 	border:		0px;
 	left:		0vw;
-	top:		1vh;
+	top:		0vh;
 	width:		100vw;
-	height:		90vh;
+	height:		100vh;
+	display:	flex;
+	justify-content:	center;
+	align-items:	center;
+}
+
+#GameWindow:empty
+{
+	content:	"Loading game...";
+	background:	red;
+}
+
+#GameWindow *
+{
+	width:	80%;
+	height:	80%;
+	background:	lime;
 }
 
 #Minesweeper
@@ -125,7 +141,7 @@ body
 		<div><input type=text value="Type something and press enter"/></div>
 	</div>
 	
-	<div id=GameWindow>Loading game...</div>
+	<div id=GameWindow></div>
 	
 	<script>
 	"use strict";
