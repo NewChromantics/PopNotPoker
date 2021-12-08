@@ -12,6 +12,17 @@
 	--SelectionColour5:	#f11;
 }
 
+.LayoutRoot
+{
+	flex:	1;	/* grow if in parent */
+	
+	background:		magenta;
+	display:		flex;
+	flex-direction:	column;
+	align-items:	center;
+	justify-content:	center;
+}
+
 .TileMap
 {
 	background:		blue;

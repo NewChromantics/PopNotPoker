@@ -368,25 +368,43 @@ class Boggle extends BaseGameElement
 		this.Style = document.createElement('style');
 		Parent.appendChild(this.Style);
 		
+		this.LayoutRoot = document.createElement('div');
+		this.LayoutRoot.className = 'LayoutRoot';
+		Parent.appendChild(this.LayoutRoot);
+		
 		this.TileMap = document.createElement( SelectableTileMapElement.ElementName() );
-		Parent.appendChild(this.TileMap);
+		this.LayoutRoot.appendChild(this.TileMap);
 
 		this.PlayButton = document.createElement('Button');
 		this.PlayButton.textContent = 'Play';
 		this.PlayButton.disabled = true;
-		Parent.appendChild(this.PlayButton);
+		this.LayoutRoot.appendChild(this.PlayButton);
 
 		this.SkipButton = document.createElement('Button');
 		this.SkipButton.textContent = 'Skip';
 		this.SkipButton.disabled = true;
-		Parent.appendChild(this.SkipButton);
+		this.LayoutRoot.appendChild(this.SkipButton);
 	}
 	
+	
+	GetCssContent()
+	{
+		let Css = ``;
+		if ( this.css )
+			Css += `@import "${this.css}";`;
+			
+		Css += `
+		`;
+		return Css;
+	}
 	
 	attributeChangedCallback(name, oldValue, newValue) 
 	{
 		if ( this.TileMap )
 			this.TileMap.css = this.css;
+			
+		if ( this.Style )
+			this.Style.textContent = this.GetCssContent();
 	}
 	
 	connectedCallback()
