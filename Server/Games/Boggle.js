@@ -317,6 +317,7 @@ class BoggleGame extends Game
 			//	report move
 			const ActionRender = {};
 			ActionRender.Player = Player;
+			ActionRender.Skip = Player;
 			ActionRender.Debug = `Player ${Player} skipped turn`;
 			OnAction(ActionRender);
 			
