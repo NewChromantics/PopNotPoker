@@ -1,0 +1,13 @@
+{
+	"Text": 
+	{
+		"Children":[],
+		"Joint":"Center",
+		"Uniforms":
+		{
+			"x":0,
+			"y":0,
+			"Text":"Your Move"
+		}
+	}
+}

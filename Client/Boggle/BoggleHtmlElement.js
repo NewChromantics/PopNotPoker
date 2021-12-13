@@ -60,7 +60,7 @@ class BaseGameElement extends HTMLElement
 	
 	OnPlayerMetaChanged(Message)
 	{
-		console.log(`OnPlayerMetaChanged message ${Message}`);
+		console.log(`OnPlayerMetaChanged message`,Message);
 	}
 	
 	async ShowAction(Action)
@@ -76,12 +76,15 @@ class BaseGameElement extends HTMLElement
 			await this.ShowAction( Message.Action );
 		};
 		this.GameUpdateQueue.Push( RunAction.bind(this) );
-		console.log(`Unhandled message ${Message}`);
+		console.log(`OnAction message`,Message);
 	};
 
 	OnOtherMessage(Message,SendReply)
 	{
-		console.log(`Unhandled message ${Message}`);
+		console.log(`Unhandled message`,Message);
+		//	update state if provided
+		if ( Message.State )
+			this.UpdateState( Message.State, Message );
 	}
 }
 
@@ -213,6 +216,10 @@ class Boggle extends BaseGameElement
 			Css += `@import "${this.css}";`;
 			
 		Css += `
+		:host
+		{
+			position:	relative;
+		}
 		`;
 		return Css;
 	}
@@ -284,7 +291,7 @@ class Boggle extends BaseGameElement
 	{
 		//	create new scene element
 		let Scene = document.createElement(SceneHtmlElement);
-		Scene.scenefilename = SceneFilename;
+		Scene.scenefilename = `Boggle/Scene/${SceneFilename}`;
 		this.Shadow.appendChild( Scene );
 		try
 		{
