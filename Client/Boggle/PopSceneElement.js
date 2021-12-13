@@ -112,7 +112,7 @@ class PopScene
 	
 	GetDurationMs()
 	{
-		//	calc this from animations
+		//	calc this from timelines
 		//	although really we probably wouldn't need a duration at all and should be
 		//	catching end points from the host events (css animation)
 		return 2 * 1000;
@@ -196,6 +196,7 @@ class SceneElement extends HTMLElement
 		let Element = document.createElement('div');
 		let ParentId = ParentElement.id ? `${ParentElement.id}-` : '';
 		Element.id = `${ParentId}${Name}`;
+		Element.className = 'Actor';
 		this.SetActorUniforms( Element, Actor.Uniforms );
 		ParentElement.appendChild( Element );
 	}
@@ -256,6 +257,17 @@ class SceneElement extends HTMLElement
 			width:		100%;
 			height:		100%;
 			display:	block;
+		}
+		
+		/*	this should move into Actor html element specific stuff */
+		.Actor
+		{
+			/* generic vars and their defaults */
+			--x:		0;
+			--y:		0;
+			transform:	translate3d( calc(var(--x)*1px), calc(var(--y)*1px), 0 );
+			background:	lime;
+			display:	inline-block;
 		}
 		`;
 		return Css;
