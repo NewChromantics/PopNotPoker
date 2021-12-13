@@ -1,0 +1,43 @@
+
+:host,
+:root
+{
+	--Yellow:		#fc1;
+	--CellDefault:	var(--Yellow);
+	--SelectionColour0:	#1f8;
+	--SelectionColour1:	#1ef;
+	--SelectionColour2:	#18f;
+	--SelectionColour3:	#61f;
+	--SelectionColour4:	#f1d;
+	--SelectionColour5:	#f11;
+}
+
+
+.TileMap
+{
+	background:		blue;
+}
+
+.Tile
+{
+	background:	var(--CellDefault);
+	border:		2px solid black;
+	text-align:	center;
+	font-size:	200%;
+	cursor:		pointer;
+}
+
+.Tile:before
+{
+	content:	attr("Tile");
+}
+
+
+/* any [other] */
+.Tile[selectionindex]		{	background:		var(--SelectionColour5);	}
+.Tile[selectionindex="0"]	{	background:		var(--SelectionColour0);	}
+.Tile[selectionindex="1"]	{	background:		var(--SelectionColour1);	}
+.Tile[selectionindex="2"]	{	background:		var(--SelectionColour2);	}
+.Tile[selectionindex="3"]	{	background:		var(--SelectionColour3);	}
+.Tile[selectionindex="4"]	{	background:		var(--SelectionColour4);	}
+
