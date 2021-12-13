@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src='SpriteHtmlElement.js' type=module></script>
+<style>
+	/* disable scrolling on ios
+	 https://stackoverflow.com/a/57489918/355753
+	 */
+
+body
+{
+	background:		#555;
+}
+
+sprite-scene
+{
+	width:		90vw;
+	height:		90vh;
+	background:	red;
+}
+
+#SpriteContainer
+{
+	transform-origin:	0 0;
+	transform:		scale(5.0);
+	position:	absolute;
+	left:	10px;
+	top:	10px;
+	width:	100px;
+	height:	100px;
+	background:lime;
+}
+
+*[Sprite=SonicRun]
+{
+	--Image:		url("sonicrun.png");
+	--SpriteWidth:	42px;
+	--SpriteHeight:	45px;
+	--FrameCount:	8;
+}
+
+@keyframes playsprite
+{
+	100%	{ background-position-x: calc(var(--FrameCount) * var(--SpriteWidth) * -1); }
+}
+
+*[Sprite]
+{
+	width:		var(--SpriteWidth);
+	height:		var(--SpriteHeight);
+	background: var(--Image);
+	background-position-x: 0px;
+	background-position-y: 0px;
+	image-rendering: pixelated;
+	animation: playsprite 0.8s steps(var(--FrameCount)) infinite;
+}
+
+</style>
+</head>
+<body>
+	<h1>Tile Map</h1>
+	<div id=SpriteContainer>
+		<div sprite="SonicRun"></div>
+	</div>
+	
+	<sprite-scene css="SpriteTest.css">
+		<sprite-sprite x=0 y=0></sprite-sprite>
+	</sprite-scene>
+		
+	<script>
+	</script>
+</body>
+
