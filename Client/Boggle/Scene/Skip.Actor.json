@@ -1,0 +1,12 @@
+{
+	"Joint":"Center",
+	"Children":
+	{
+	},
+	"Uniforms":
+	{
+		"x":0,
+		"y":0,
+		"Text":"Skip"
+	}
+}

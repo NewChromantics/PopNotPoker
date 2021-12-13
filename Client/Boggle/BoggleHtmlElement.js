@@ -128,7 +128,7 @@ class Boggle extends BaseGameElement
 		await this.OnDomCreatedPromise;
 		
 		//	setup UI
-		await this.WaitForScene(`Welcome.json`);
+		await this.WaitForScene(`Welcome`);
 		await this.CreateTileMap();
 		
 		//	now just wait for external game updates
@@ -164,12 +164,12 @@ class Boggle extends BaseGameElement
 	
 		if ( Action.Skip )
 		{
-			return await this.WaitForScene(`PlayerSkipped.json`);
+			return await this.WaitForScene(`PlayerSkipped`);
 		}
 	
 		if ( Action.BadMove )
 		{
-			return await this.WaitForScene(`BadMove.json`);
+			return await this.WaitForScene(`BadMove`);
 		}
 	
 		//	unhandled action
@@ -204,6 +204,7 @@ class Boggle extends BaseGameElement
 			
 		//	want to change this to a tilemap scene
 		this.TileMap = document.createElement( SelectableTileMapElement.ElementName() );
+		this.TileMap.css = this.css;
 		this.LayoutRoot.appendChild(this.TileMap);
 	}
 		
@@ -287,11 +288,11 @@ class Boggle extends BaseGameElement
 		return ActionResponse;
 	}
 	
-	async WaitForScene(SceneFilename)
+	async WaitForScene(SceneName)
 	{
 		//	create new scene element
 		let Scene = document.createElement(SceneHtmlElement);
-		Scene.scenefilename = `Boggle/Scene/${SceneFilename}`;
+		Scene.scenefilename = `Boggle/Scene/${SceneName}.Scene.json`;
 		this.Shadow.appendChild( Scene );
 		try
 		{
@@ -300,7 +301,7 @@ class Boggle extends BaseGameElement
 		}
 		catch(e)
 		{
-			console.error(`WaitForScene(${SceneFilename}) error; ${e}`);
+			console.error(`WaitForScene(${SceneName}) error; ${e}`);
 		}
 		finally
 		{

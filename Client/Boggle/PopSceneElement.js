@@ -2,7 +2,7 @@ export const SceneElementName = 'pop-scene';
 export default SceneElementName;
 
 import {CreatePromise} from '../PopEngineCommon/PopApi.js'
-
+import Timeline_t from '../PopEngineCommon/Timeline.js'
 
 
 function SetElementVariable(Element,Key,Value)
@@ -16,16 +16,98 @@ function SetElementVariable(Element,Key,Value)
 }
 
 
+//	an actor compromises uniforms, meta, and other child actors
+//	platform agnostic
+class PopActor
+{
+	constructor(ActorJson)
+	{
+		//	defaults
+		this.Children = {};
+		this.Joint = null;
+		this.Uniforms = {};
+		Object.assign( this, ActorJson );
+		
+		this.LoadChildrenPromise = null;
+	}
+	
+	async WaitForLoad(BasePath)
+	{
+		if ( !this.LoadFilesPromise )
+			this.LoadFilesPromise = this.LoadChildren(BasePath);
+		return this.LoadFilesPromise;
+	}
+	
+	//	gr: this might also expand to loading asset dependencies?
+	async LoadChildren(BasePath)
+	{
+		//	
+	}
+}
+
+
 //	this will be the platform agnostic class
-//	a scene should probably be 
-//	- layout asset (which is a tree of prefabs/sprites)
-//	- Page/layout asset (bounds, pixel perfect settings etc)
+//	a scene should be 
+//	- named root actor[asset]s
+//	- Page/layout asset/meta (bounds, pixel perfect settings etc)
 //	- sequence of animation assets (which are name+uniform: value timelines)
 class PopScene
 {
-	constructor(LayoutJson)
+	constructor(SceneJson,Filename)
 	{
-		this.Layout = LayoutJson;
+		this.Filename = Filename;
+		this.OnLoadPromise = this.LoadFiles(SceneJson);
+	}
+	
+	async WaitForLoad()
+	{
+		return this.OnLoadPromise;
+	}
+
+	get BasePath()
+	{
+		let PathChunks = this.Filename.split('/');
+		let Filename = PathChunks.pop();
+		let BasePath = PathChunks.join('/');
+		return BasePath;
+	}
+
+	async LoadFiles(SceneJson)
+	{
+		async function LoadJson(Filename)
+		{
+			const Response = await fetch(Filename);
+			return await Response.json();
+		}
+
+		//	setup default scene asset
+		this.Scene = {};
+		this.Scene.Timelines = [];
+		this.Scene.Actors = {};
+		Object.assign( this.Scene, SceneJson );
+
+		this.Timelines = [];
+		this.Actors = {};
+		
+		//	load timelines
+		for ( let TimelineName of this.Scene.Timelines )
+		{
+			const TimelineFilename = `${this.BasePath}/${TimelineName}.Timeline.json`;
+			const TimelineJson = await LoadJson( TimelineFilename );
+			const Timeline = new Timeline_t( TimelineJson );
+			this.Timelines.push( Timeline );
+		}
+		
+		//	need to preserve order for Z! but loading json doesn't guarantee that...
+		//	so this needs to be an array, not keyed, but we still want unique names...
+		for ( let ActorName in this.Scene.Actors )
+		{
+			const ActorFilename = `${this.BasePath}/${ActorName}.Actor.json`;
+			const ActorJson = await LoadJson( ActorFilename );
+			const Actor = new PopActor( ActorJson );
+			this.Actors[ActorName] = Actor;
+			await Actor.WaitForLoad( this.BasePath );
+		}
 	}
 	
 	GetDurationMs()
@@ -36,10 +118,10 @@ class PopScene
 		return 2 * 1000;
 	}
 	
-	//	returns dictionary of sprites
-	GetSprites()
+	//	returns dictionary of actors (todo: this needs to be a preserved z order!)
+	GetActors()
 	{
-		return this.Layout;
+		return this.Actors;
 	}
 }
 
@@ -81,54 +163,55 @@ class SceneElement extends HTMLElement
 		return this.OnFinishedPromise;
 	}
 	
-	async LoadSceneJson()
+	async LoadScene()
 	{
 		let Filename = this.scenefilename;
 		const Response = await fetch( Filename );
 		const Json = await Response.json();
-		let Scene = new PopScene(Json);
+		let Scene = new PopScene(Json,Filename);
+		await Scene.WaitForLoad();
 		return Scene;
 	}
 	
-	get SpriteParentElement()
+	get ActorParentElement()
 	{
 		return this.Shadow;
 	}
 	
-	SetSpriteUniforms(SpriteElement,Uniforms)
+	SetActorUniforms(ActorElement,Uniforms)
 	{
 		for ( let Name in Uniforms )
 		{
 			let Value = Uniforms[Name];
-			SetElementVariable( SpriteElement, Name, Value );
+			SetElementVariable( ActorElement, Name, Value );
 			
-			//	temp
+			//	temp - text uniform = textcontent
 			if ( Name == `Text` )
-				SpriteElement.textContent = Value;
+				ActorElement.textContent = Value;
 		}
 	}
 	
-	async LoadSprite(Name,Sprite,ParentElement)
+	async LoadActor(Name,Actor,ParentElement)
 	{
 		let Element = document.createElement('div');
-		let ParentId = ParentElement.id ? `${ParentElement.id}/` : '';
+		let ParentId = ParentElement.id ? `${ParentElement.id}-` : '';
 		Element.id = `${ParentId}${Name}`;
-		this.SetSpriteUniforms( Element, Sprite.Uniforms );
+		this.SetActorUniforms( Element, Actor.Uniforms );
 		ParentElement.appendChild( Element );
 	}
 	
-	async LoadSprites(Sprites,ParentElement)
+	async LoadActors(Actors,ParentElement)
 	{
-		if ( !Sprites )
+		if ( !Actors )
 			return;
 		if ( !ParentElement )
-			ParentElement = this.SpriteParentElement;
+			ParentElement = this.ActorParentElement;
 
-		for ( let SpriteName in Sprites )
+		for ( let ActorName in Actors )
 		{
-			let Sprite = Sprites[SpriteName];
-			await this.LoadSprite( SpriteName, Sprite, ParentElement );
-			await this.LoadSprites( Sprite.Children );
+			let Actor = Actors[ActorName];
+			await this.LoadActor( ActorName, Actor, ParentElement );
+			await this.LoadActors( Actor.Children );
 		}
 	}
 	
@@ -137,16 +220,16 @@ class SceneElement extends HTMLElement
 		//	wait for attribs to be set
 		await this.OnLoadAttributesPromise;
 		//	load scene json
-		const Scene = await this.LoadSceneJson();
+		const Scene = await this.LoadScene();
 		//	wait for DOM to create me
 		await this.OnCreatedDomPromise;
 		
 		//	load scene elements
-		let Sprites = Scene.GetSprites();
-		await this.LoadSprites(Sprites);
+		let Actors = Scene.GetActors();
+		await this.LoadActors(Actors);
 		
 		//	start anims
-		//	todo: add a root animation with duration to sync with sprite anims?
+		//	todo: add a root animation with duration to sync with timeline-generated anims
 		//	catch animation end event
 		//	finish
 		await Pop.Yield( Scene.GetDurationMs() );
